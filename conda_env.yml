@@ -2,7 +2,7 @@ name: pytorch_sac_ae
 channels:
   - defaults
 dependencies:
-  - python=3.6
+  - python=3.7
   - pytorch
   - torchvision
   - cudatoolkit=9.2
