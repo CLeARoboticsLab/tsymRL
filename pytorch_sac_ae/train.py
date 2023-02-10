@@ -21,7 +21,7 @@ from sac_ae import SacAeAgent
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--domain_name', default='cheetah')
+    parser.add_argument('--domain_name', default='cartpole')
     parser.add_argument('--task_name', default='run')
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)

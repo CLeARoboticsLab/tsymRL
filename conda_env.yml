@@ -1,18 +1,21 @@
-name: pytorch_sac_ae
+name: tsym
 channels:
   - defaults
 dependencies:
   - python=3.7
   - pytorch
   - torchvision
-  - cudatoolkit=9.2
+  # - cudatoolkit=9.2
   - absl-py
   - pyparsing
-  - gym=0.19.0
+  - pip
   - pip:
+    - gym==0.19.0
     - termcolor
     # - git+git://github.com/deepmind/dm_control.git these are installed locally now since they had to be modified
     # - git+git://github.com/denisyarats/dmc2gym.git
+    - dm_control
+    - dmc2gym
     - tb-nightly
     - imageio
     - imageio-ffmpeg
