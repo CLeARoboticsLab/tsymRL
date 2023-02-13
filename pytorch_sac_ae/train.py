@@ -22,10 +22,11 @@ def parse_args():
     parser = argparse.ArgumentParser()
     # environment
     parser.add_argument('--domain_name', default='cartpole')
-    parser.add_argument('--task_name', default='run')
+    parser.add_argument('--task_name', default='balance')
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
+    parser.add_argument('--time_rev', default=True, type=bool)
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=1000000, type=int)
     # train
@@ -36,7 +37,7 @@ def parse_args():
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
     parser.add_argument('--eval_freq', default=10000, type=int)
-    parser.add_argument('--num_eval_episodes', default=10, type=int)
+    parser.add_argument('--num_eval_episodes', default=0, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
     parser.add_argument('--critic_beta', default=0.9, type=float)
@@ -68,13 +69,34 @@ def parse_args():
     # misc
     parser.add_argument('--seed', default=1, type=int)
     parser.add_argument('--work_dir', default='.', type=str)
-    parser.add_argument('--save_tb', default=False, action='store_true')
+    parser.add_argument('--save_tb', default=True, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
     parser.add_argument('--save_video', default=False, action='store_true')
 
     args = parser.parse_args()
     return args
+
+def conjugate_obs(obs, next_obs, args):
+
+    # Pixel based obs we reverse the stacked frames
+    if args.encoder_type == "pixel":
+        # Make a view of the original obs and reshape into rgb array of size framestack
+        conj_next_obs = obs.view().reshape(args.frame_stack, 3, args.image_size, args.image_size)
+        # Reshape and flip ordering of frames
+        conj_next_obs = np.flip(conj_next_obs, 0)
+        # Reshape again so we have our frames stacked properly for replay buffer
+        conj_next_obs = conj_next_obs.reshape(args.frame_stack * 3, args.image_size, args.image_size)
+
+        # Make a view of the original obs and reshape into rgb array of size framestack
+        conj_obs = next_obs.view().reshape(args.frame_stack, 3, args.image_size, args.image_size)
+        # Reshape and flip ordering of frames
+        conj_obs = np.flip(conj_obs, 0)
+        # Reshape again so we have our frames stacked properly for replay buffer
+        conj_obs = conj_obs.reshape(args.frame_stack * 3, args.image_size, args.image_size)
+
+    # Return our conjugate obs (starting observation) and our conj_next_obs (where we transition to in reverse time)
+    return conj_obs, conj_next_obs
 
 
 def evaluate(env, agent, video, num_episodes, L, step):
@@ -143,7 +165,8 @@ def main():
         from_pixels=(args.encoder_type == 'pixel'),
         height=args.image_size,
         width=args.image_size,
-        frame_skip=args.action_repeat
+        frame_skip=args.action_repeat,
+        time_rev = args.time_rev
     )
     env.seed(args.seed)
 
@@ -183,6 +206,14 @@ def main():
     )
 
     L = Logger(args.work_dir, use_tb=args.save_tb)
+
+    # Determine which states we need to do conjugate state transformation on
+    if args.time_rev:
+        if args.domain_name == 'cartpole':
+            print("Running ", args.domain_name)
+        else:
+            print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
+            return
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
@@ -225,9 +256,20 @@ def main():
             for _ in range(num_updates):
                 agent.update(replay_buffer, L, step)
 
-        next_obs, reward, done, _ = env.step(action)
+        # Modified this since the dmc2gym wrapper gives us internal state for free in the extras dict
+        next_obs, reward, done, extra = env.step(action)
 
-        # allow infinit bootstrap
+        # If time symmetric is being used then do the reverse time step
+        if args.time_rev:
+            conj_obs, conj_next_obs = conjugate_obs(obs, next_obs, args)
+            # Assess the reward, done bool using simulation oracle - control suite tasks only have time based terminations
+            if episode_step == 0:
+                conj_done = True # Treat start of reverse time trajectory the same as a timeout
+            else: 
+                conj_done = False
+            replay_buffer.add(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
+
+        # allow infinite bootstrap
         done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(
             done
         )

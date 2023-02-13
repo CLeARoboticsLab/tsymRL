@@ -121,6 +121,11 @@ class Environment(dm_env.Environment):
     else:
       return dm_env.TimeStep(dm_env.StepType.MID, reward, 1.0, observation)
 
+  def rev_time_reward(self):
+    """Returns the reversed time reward for this environment."""
+    rev_reward = self._task.get_rev_reward(self._physics)
+    return rev_reward
+
   def action_spec(self):
     """Returns the action specification for this environment."""
     return self._task.action_spec(self._physics)

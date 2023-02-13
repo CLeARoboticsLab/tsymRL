@@ -47,7 +47,8 @@ class DMCWrapper(core.Env):
         camera_id=0,
         frame_skip=1,
         environment_kwargs=None,
-        channels_first=True
+        channels_first=True,
+        time_rev = False
     ):
         assert 'random' in task_kwargs, 'please specify a seed, for deterministic behaviour'
         self._from_pixels = from_pixels
@@ -56,6 +57,7 @@ class DMCWrapper(core.Env):
         self._camera_id = camera_id
         self._frame_skip = frame_skip
         self._channels_first = channels_first
+        self._time_rev = time_rev
 
         # create task
         self._env = suite.load(
@@ -150,12 +152,17 @@ class DMCWrapper(core.Env):
         reward = 0
         extra = {'internal_state': self._env.physics.get_state().copy()}
 
+        # Get the reversed time reward from our trajectory
+        if self._time_rev:
+            extra['rev_reward'] = self._env.rev_time_reward()
+
         for _ in range(self._frame_skip):
             time_step = self._env.step(action)
             reward += time_step.reward or 0
             done = time_step.last()
             if done:
                 break
+
         obs = self._get_obs(time_step)
         self.current_state = _flatten_obs(time_step.observation)
         extra['discount'] = time_step.discount
