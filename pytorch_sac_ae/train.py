@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--frame_stack', default=3, type=int)
     parser.add_argument('--time_rev', default=True, type=bool)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=1000000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=100000, type=int)
     # train
     parser.add_argument('--agent', default='sac_ae', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
@@ -50,11 +50,14 @@ def parse_args():
     parser.add_argument('--actor_log_std_max', default=2, type=float)
     parser.add_argument('--actor_update_freq', default=2, type=int)
     # encoder/decoder
-    parser.add_argument('--encoder_type', default='pixel', type=str)
+    # parser.add_argument('--encoder_type', default='pixel', type=str)
+    parser.add_argument('--encoder_type', default='identity', type=str)
     parser.add_argument('--encoder_feature_dim', default=50, type=int)
     parser.add_argument('--encoder_lr', default=1e-3, type=float)
     parser.add_argument('--encoder_tau', default=0.05, type=float)
-    parser.add_argument('--decoder_type', default='pixel', type=str)
+    # parser.add_argument('--decoder_type', default='pixel', type=str)
+    parser.add_argument('--decoder_type', default='identity', type=str)
+
     parser.add_argument('--decoder_lr', default=1e-3, type=float)
     parser.add_argument('--decoder_update_freq', default=1, type=int)
     parser.add_argument('--decoder_latent_lambda', default=1e-6, type=float)
@@ -94,6 +97,16 @@ def conjugate_obs(obs, next_obs, args):
         conj_obs = np.flip(conj_obs, 0)
         # Reshape again so we have our frames stacked properly for replay buffer
         conj_obs = conj_obs.reshape(args.frame_stack * 3, args.image_size, args.image_size)
+    else:
+        conj_obs = next_obs.copy()
+        conj_next_obs = obs.copy()
+
+        # hard coded for cartpole for now
+        for idx in [3,4]:
+            conj_obs[idx] = conj_obs[idx] * -1
+            conj_next_obs[idx] = conj_next_obs[idx] * -1
+
+        conj_obs = next_obs
 
     # Return our conjugate obs (starting observation) and our conj_next_obs (where we transition to in reverse time)
     return conj_obs, conj_next_obs
@@ -214,10 +227,17 @@ def main():
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
             return
+        num_train_steps = int(args.num_train_steps/2)
+        eval_freq = int(args.eval_freq/2)
+        init_steps = int(args.init_steps/2)
+    else:
+        num_train_steps = int(args.num_train_steps)
+        eval_freq = int(args.eval_freq)
+        init_steps = int(args.init_steps)
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
-    for step in range(args.num_train_steps):
+    for step in range(num_train_steps):
         if done:
             if step > 0:
                 L.log('train/duration', time.time() - start_time, step)
@@ -225,7 +245,7 @@ def main():
                 L.dump(step)
 
             # evaluate agent periodically
-            if step % args.eval_freq == 0:
+            if step % eval_freq == 0:
                 L.log('eval/episode', episode, step)
                 evaluate(env, agent, video, args.num_eval_episodes, L, step)
                 if args.save_model:
@@ -244,15 +264,15 @@ def main():
             L.log('train/episode', episode, step)
 
         # sample action for data collection
-        if step < args.init_steps:
+        if step < init_steps:
             action = env.action_space.sample()
         else:
             with utils.eval_mode(agent):
                 action = agent.sample_action(obs)
 
         # run training update
-        if step >= args.init_steps:
-            num_updates = args.init_steps if step == args.init_steps else 1
+        if step >= init_steps:
+            num_updates = args.init_steps if step == init_steps else 1
             for _ in range(num_updates):
                 agent.update(replay_buffer, L, step)
 
@@ -268,6 +288,12 @@ def main():
             else: 
                 conj_done = False
             replay_buffer.add(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
+
+            # run training update second time now that we have added conjugate state
+            if step >= init_steps:
+                num_updates = 1
+                for _ in range(num_updates):
+                    agent.update(replay_buffer, L, step)
 
         # allow infinite bootstrap
         done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(
