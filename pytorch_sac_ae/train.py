@@ -230,10 +230,12 @@ def main():
         num_train_steps = int(args.num_train_steps/2)
         eval_freq = int(args.eval_freq/2)
         init_steps = int(args.init_steps/2)
+        step_scale = 2
     else:
         num_train_steps = int(args.num_train_steps)
         eval_freq = int(args.eval_freq)
         init_steps = int(args.init_steps)
+        step_scale = 1
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
@@ -274,7 +276,7 @@ def main():
         if step >= init_steps:
             num_updates = args.init_steps if step == init_steps else 1
             for _ in range(num_updates):
-                agent.update(replay_buffer, L, step)
+                agent.update(replay_buffer, L, step * step_scale)
 
         # Modified this since the dmc2gym wrapper gives us internal state for free in the extras dict
         next_obs, reward, done, extra = env.step(action)
@@ -293,7 +295,7 @@ def main():
             if step >= init_steps:
                 num_updates = 1
                 for _ in range(num_updates):
-                    agent.update(replay_buffer, L, step)
+                    agent.update(replay_buffer, L, step * step_scale)
 
         # allow infinite bootstrap
         done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(
