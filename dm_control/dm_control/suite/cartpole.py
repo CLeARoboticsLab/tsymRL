@@ -224,7 +224,7 @@ class Balance(base.Task):
     """Returns a sparse or a smooth reward, as specified in the constructor."""
     return self._get_reward(physics, sparse=self._sparse)
 
-  def _get_rev_reward(self, physics, sparse):
+  def _get_rev_reward(self, physics, action, sparse):
       if sparse:
         cart_in_bounds = rewards.tolerance(physics.cart_position(),
                                           self._CART_RANGE)
@@ -235,14 +235,14 @@ class Balance(base.Task):
         upright = (physics.pole_angle_cosine() + 1) / 2
         centered = rewards.tolerance(physics.cart_position(), margin=2)
         centered = (1 + centered) / 2
-        small_control = rewards.tolerance(physics.control(), margin=1,
+        small_control = rewards.tolerance(action, margin=1,
                                           value_at_margin=0,
                                           sigmoid='quadratic')[0]
         small_control = (4 + small_control) / 5
-        small_velocity = rewards.tolerance(-physics.angular_vel(), margin=5).min()
+        small_velocity = rewards.tolerance(physics.angular_vel(), margin=5).min()
         small_velocity = (1 + small_velocity) / 2
         return upright.mean() * small_control * small_velocity * centered
 
-  def get_rev_reward(self, physics):
+  def get_rev_reward(self, physics, action):
     """Returns a sparse or a smooth reversed time reward, as specified in the constructor."""
-    return self._get_rev_reward(physics, sparse=self._sparse)
+    return self._get_rev_reward(physics, action, sparse=self._sparse)

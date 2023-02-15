@@ -154,7 +154,7 @@ class DMCWrapper(core.Env):
 
         # Get the reversed time reward from our trajectory
         if self._time_rev:
-            extra['rev_reward'] = self._env.rev_time_reward()
+            extra['rev_reward'] = self._env.rev_time_reward(action)
 
         for _ in range(self._frame_skip):
             time_step = self._env.step(action)

@@ -71,7 +71,7 @@ def parse_args():
     parser.add_argument('--alpha_beta', default=0.5, type=float)
     # misc
     parser.add_argument('--seed', default=1, type=int)
-    parser.add_argument('--work_dir', default='.', type=str)
+    parser.add_argument('--work_dir', default='./log', type=str)
     parser.add_argument('--save_tb', default=True, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
@@ -105,8 +105,6 @@ def conjugate_obs(obs, next_obs, args):
         for idx in [3,4]:
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
-
-        conj_obs = next_obs
 
     # Return our conjugate obs (starting observation) and our conj_next_obs (where we transition to in reverse time)
     return conj_obs, conj_next_obs
@@ -197,7 +195,8 @@ def main():
     with open(os.path.join(args.work_dir, 'args.json'), 'w') as f:
         json.dump(vars(args), f, sort_keys=True, indent=4)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = 'cpu'
 
     # the dmc2gym wrapper standardizes actions
     assert env.action_space.low.min() >= -1
@@ -227,35 +226,30 @@ def main():
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
             return
-        num_train_steps = int(args.num_train_steps/2)
-        eval_freq = int(args.eval_freq/2)
-        init_steps = int(args.init_steps/2)
-        step_scale = 2
+        rel_step = 1/2
     else:
-        num_train_steps = int(args.num_train_steps)
-        eval_freq = int(args.eval_freq)
-        init_steps = int(args.init_steps)
-        step_scale = 1
+        rel_step = 1
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
-    for step in range(num_train_steps):
+    iter_train_steps = iter(range(args.num_train_steps))
+    for step in iter_train_steps:
         if done:
             if step > 0:
                 L.log('train/duration', time.time() - start_time, step)
                 start_time = time.time()
-                L.dump(step)
+                L.dump(rel_step * step)
 
             # evaluate agent periodically
-            if step % eval_freq == 0:
-                L.log('eval/episode', episode, step)
+            if step % args.eval_freq == 0:
+                L.log('eval/episode', episode, rel_step * step)
                 evaluate(env, agent, video, args.num_eval_episodes, L, step)
                 if args.save_model:
                     agent.save(model_dir, step)
                 if args.save_buffer:
                     replay_buffer.save(buffer_dir)
 
-            L.log('train/episode_reward', episode_reward, step)
+            L.log('train/episode_reward', episode_reward, rel_step * step)
 
             obs = env.reset()
             done = False
@@ -263,27 +257,33 @@ def main():
             episode_step = 0
             episode += 1
 
-            L.log('train/episode', episode, step)
+            L.log('train/episode', episode, rel_step * step)
 
         # sample action for data collection
-        if step < init_steps:
+        if step < args.init_steps:
             action = env.action_space.sample()
         else:
             with utils.eval_mode(agent):
                 action = agent.sample_action(obs)
 
         # run training update
-        if step >= init_steps:
-            num_updates = args.init_steps if step == init_steps else 1
+        if step >= args.init_steps:
+            num_updates = args.init_steps if step == args.init_steps else 1
             for _ in range(num_updates):
-                agent.update(replay_buffer, L, step * step_scale)
+                agent.update(replay_buffer, L, step)
 
         # Modified this since the dmc2gym wrapper gives us internal state for free in the extras dict
         next_obs, reward, done, extra = env.step(action)
 
         # If time symmetric is being used then do the reverse time step
         if args.time_rev:
+
+            # Advance the iterator for training steps
+            _ = next(iter_train_steps)
+
+            # Find conjugate current and next observations
             conj_obs, conj_next_obs = conjugate_obs(obs, next_obs, args)
+
             # Assess the reward, done bool using simulation oracle - control suite tasks only have time based terminations
             if episode_step == 0:
                 conj_done = True # Treat start of reverse time trajectory the same as a timeout
@@ -292,10 +292,10 @@ def main():
             replay_buffer.add(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
 
             # run training update second time now that we have added conjugate state
-            if step >= init_steps:
-                num_updates = 1
+            if step + 1 >= args.init_steps:
+                num_updates = args.init_steps if step + 1 == args.init_steps else 1
                 for _ in range(num_updates):
-                    agent.update(replay_buffer, L, step * step_scale)
+                    agent.update(replay_buffer, L, step + 1)
 
         # allow infinite bootstrap
         done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(
