@@ -102,6 +102,28 @@ def three_poles(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=3,
       physics, task, time_limit=time_limit, **environment_kwargs)
 
 
+@SUITE.add()
+def two_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=2,
+                sparse=False, environment_kwargs=None):
+  """Returns the Cartpole Balance task with three or more poles."""
+  physics = Physics.from_xml_string(*get_model_and_assets(num_poles=num_poles))
+  task = Balance(swing_up=False, sparse=sparse, random=random)
+  environment_kwargs = environment_kwargs or {}
+  return control.Environment(
+      physics, task, time_limit=time_limit, **environment_kwargs)
+
+
+@SUITE.add()
+def five_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=5,
+                sparse=False, environment_kwargs=None):
+  """Returns the Cartpole Balance task with three or more poles."""
+  physics = Physics.from_xml_string(*get_model_and_assets(num_poles=num_poles))
+  task = Balance(swing_up=False, sparse=sparse, random=random)
+  environment_kwargs = environment_kwargs or {}
+  return control.Environment(
+      physics, task, time_limit=time_limit, **environment_kwargs)
+
+
 def _make_model(n_poles):
   """Generates an xml string defining a cart with `n_poles` bodies."""
   xml_string = common.read_model('cartpole.xml')

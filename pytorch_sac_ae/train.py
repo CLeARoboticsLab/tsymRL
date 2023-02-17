@@ -22,22 +22,24 @@ def parse_args():
     parser = argparse.ArgumentParser()
     # environment
     parser.add_argument('--domain_name', default='cartpole')
-    parser.add_argument('--task_name', default='balance')
+    # parser.add_argument('--task_name', default='two_pole_balance')
+    parser.add_argument('--task_name', default='swingup')
+
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
-    parser.add_argument('--time_rev', default=True, type=bool)
+    parser.add_argument('--time_rev', default=False, type=bool)
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=100000, type=int)
     # train
     parser.add_argument('--agent', default='sac_ae', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
-    parser.add_argument('--num_train_steps', default=1000000, type=int)
+    parser.add_argument('--num_train_steps', default=50000, type=int)
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
-    parser.add_argument('--eval_freq', default=10000, type=int)
-    parser.add_argument('--num_eval_episodes', default=0, type=int)
+    parser.add_argument('--eval_freq', default=2000, type=int)
+    parser.add_argument('--num_eval_episodes', default=10, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
     parser.add_argument('--critic_beta', default=0.9, type=float)
@@ -70,8 +72,8 @@ def parse_args():
     parser.add_argument('--alpha_lr', default=1e-4, type=float)
     parser.add_argument('--alpha_beta', default=0.5, type=float)
     # misc
-    parser.add_argument('--seed', default=1, type=int)
-    parser.add_argument('--work_dir', default='./log', type=str)
+    parser.add_argument('--seed', default=2, type=int)
+    parser.add_argument('--work_dir', default='./log_false', type=str)
     parser.add_argument('--save_tb', default=True, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
@@ -97,7 +99,7 @@ def conjugate_obs(obs, next_obs, args):
         conj_obs = np.flip(conj_obs, 0)
         # Reshape again so we have our frames stacked properly for replay buffer
         conj_obs = conj_obs.reshape(args.frame_stack * 3, args.image_size, args.image_size)
-    else:
+    elif args.task_name == 'balance' or args.task_name == 'swingup' or args.task_name == 'swingup_sparse':
         conj_obs = next_obs.copy()
         conj_next_obs = obs.copy()
 
@@ -106,7 +108,29 @@ def conjugate_obs(obs, next_obs, args):
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
 
+    # elif args.task_name == 'five_pole_balance':
+    #     conj_obs = next_obs.copy()
+    #     conj_next_obs = obs.copy()
+
+    #     # hard coded for cartpole for now
+    #     for idx in [12, 13, 14, 15, 16]:
+    #         conj_obs[idx] = conj_obs[idx] * -1
+    #         conj_next_obs[idx] = conj_next_obs[idx] * -1
+
+    elif args.task_name == 'two_pole_balance':
+        conj_obs = next_obs.copy()
+        conj_next_obs = obs.copy()
+
+        # hard coded for cartpole for now
+        for idx in [5, 6, 7]:
+            conj_obs[idx] = conj_obs[idx] * -1
+            conj_next_obs[idx] = conj_next_obs[idx] * -1
+
     # Return our conjugate obs (starting observation) and our conj_next_obs (where we transition to in reverse time)
+    else:
+        print('Unknown env ', args.task_name)
+        print('Exiting....')
+        return
     return conj_obs, conj_next_obs
 
 
@@ -165,7 +189,12 @@ def make_agent(obs_shape, action_shape, args, device):
 
 
 def main():
+
     args = parse_args()
+    print("Running with following configs")
+    print("Time sym boolean is ", str(args.time_rev))
+    print("Num of steps is ", str(args.num_train_steps))
+    print("Work dir is ", str(args.work_dir))
     utils.set_seed_everywhere(args.seed)
 
     env = dmc2gym.make(
@@ -195,8 +224,9 @@ def main():
     with open(os.path.join(args.work_dir, 'args.json'), 'w') as f:
         json.dump(vars(args), f, sort_keys=True, indent=4)
 
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device = 'cpu'
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = 'cpu'
+    print('Using device ', 'cuda' if torch.cuda.is_available() else 'cpu')
 
     # the dmc2gym wrapper standardizes actions
     assert env.action_space.low.min() >= -1
@@ -243,7 +273,7 @@ def main():
             # evaluate agent periodically
             if step % args.eval_freq == 0:
                 L.log('eval/episode', episode, rel_step * step)
-                evaluate(env, agent, video, args.num_eval_episodes, L, step)
+                evaluate(env, agent, video, args.num_eval_episodes, L, rel_step * step)
                 if args.save_model:
                     agent.save(model_dir, step)
                 if args.save_buffer:
