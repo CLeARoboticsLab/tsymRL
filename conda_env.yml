@@ -19,3 +19,4 @@ dependencies:
     - tb-nightly
     - imageio
     - imageio-ffmpeg
+    - torchaudio
