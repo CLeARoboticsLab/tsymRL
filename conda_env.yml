@@ -14,8 +14,8 @@ dependencies:
     - termcolor
     # - git+git://github.com/deepmind/dm_control.git these are installed locally now since they had to be modified
     # - git+git://github.com/denisyarats/dmc2gym.git
-    - dm_control
-    - dmc2gym
+    - ./dm_control
+    - -e ./dmc2gym
     - tb-nightly
     - imageio
     - imageio-ffmpeg
