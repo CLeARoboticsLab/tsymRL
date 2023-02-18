@@ -151,17 +151,23 @@ class DMCWrapper(core.Env):
         assert self._true_action_space.contains(action)
         reward = 0
         extra = {'internal_state': self._env.physics.get_state().copy()}
+        rev_reward = 0
 
-        # Get the reversed time reward from our trajectory
-        if self._time_rev:
-            extra['rev_reward'] = self._env.rev_time_reward(action)
 
         for _ in range(self._frame_skip):
+            # Get the reversed time reward from our trajectory
+            if self._time_rev:
+                rev_reward += self._env.rev_time_reward(action)
             time_step = self._env.step(action)
             reward += time_step.reward or 0
             done = time_step.last()
             if done:
                 break
+
+
+        # Pass back out extra data that contains our reverse time trajectory reward
+        if self._time_rev:
+            extra['rev_reward'] = rev_reward
 
         obs = self._get_obs(time_step)
         self.current_state = _flatten_obs(time_step.observation)
