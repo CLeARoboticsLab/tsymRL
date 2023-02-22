@@ -121,3 +121,8 @@ class Balance(base.Task):
   def get_reward(self, physics):
     """Returns a sparse or a smooth reward, as specified in the constructor."""
     return self._get_reward(physics, sparse=self._sparse)
+  
+
+  def get_rev_reward(self, physics, action):
+    """Returns a sparse or a smooth reversed time reward, as specified in the constructor."""
+    return self._get_reward(physics, sparse=self._sparse)
