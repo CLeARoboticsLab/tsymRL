@@ -45,6 +45,7 @@ def parse_args():
     parser.add_argument('--critic_beta', default=0.9, type=float)
     parser.add_argument('--critic_tau', default=0.01, type=float)
     parser.add_argument('--critic_target_update_freq', default=2, type=int)
+    parser.add_argument('--critic_update_freq', default=2, type=int)
     # actor
     parser.add_argument('--actor_lr', default=1e-3, type=float)
     parser.add_argument('--actor_beta', default=0.9, type=float)
@@ -172,6 +173,7 @@ def make_agent(obs_shape, action_shape, args, device):
             critic_beta=args.critic_beta,
             critic_tau=args.critic_tau,
             critic_target_update_freq=args.critic_target_update_freq,
+            critic_update_freq=args.critic_update_freq,
             encoder_type=args.encoder_type,
             encoder_feature_dim=args.encoder_feature_dim,
             encoder_lr=args.encoder_lr,
@@ -256,9 +258,10 @@ def main():
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
             return
-        rel_step = 1/2
-    else:
-        rel_step = 1
+        # rel_step = 1/2
+    # else:
+        # rel_step = 1
+
 
     episode, episode_reward, done = 0, 0, True
     start_time = time.time()
@@ -268,18 +271,26 @@ def main():
             if step > 0:
                 L.log('train/duration', time.time() - start_time, step)
                 start_time = time.time()
-                L.dump(rel_step * step)
+                # L.dump(rel_step * step)
+                L.dump(step)
+
 
             # evaluate agent periodically
             if step % args.eval_freq == 0:
-                L.log('eval/episode', episode, rel_step * step)
-                evaluate(env, agent, video, args.num_eval_episodes, L, rel_step * step)
+                # L.log('eval/episode', episode, rel_step * step)
+                L.log('eval/episode', episode, step)
+
+                # evaluate(env, agent, video, args.num_eval_episodes, L, rel_step * step)
+                evaluate(env, agent, video, args.num_eval_episodes, L, step)
+
                 if args.save_model:
                     agent.save(model_dir, step)
                 if args.save_buffer:
                     replay_buffer.save(buffer_dir)
 
-            L.log('train/episode_reward', episode_reward, rel_step * step)
+            # L.log('train/episode_reward', episode_reward, rel_step * step)
+            L.log('train/episode_reward', episode_reward, step)
+
 
             obs = env.reset()
             done = False
@@ -287,7 +298,8 @@ def main():
             episode_step = 0
             episode += 1
 
-            L.log('train/episode', episode, rel_step * step)
+            # L.log('train/episode', episode, rel_step * step)
+            L.log('train/episode', episode, step)
 
         # sample action for data collection
         if step < args.init_steps:
@@ -308,8 +320,8 @@ def main():
         # If time symmetric is being used then do the reverse time step
         if args.time_rev:
 
-            # Advance the iterator for training steps
-            _ = next(iter_train_steps)
+            # # Advance the iterator for training steps
+            # _ = next(iter_train_steps)
 
             # Find conjugate current and next observations
             conj_obs, conj_next_obs = conjugate_obs(obs, next_obs, args)
@@ -321,11 +333,11 @@ def main():
                 conj_done = False
             replay_buffer.add(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
 
-            # run training update second time now that we have added conjugate state
-            if step + 1 >= args.init_steps:
-                num_updates = args.init_steps if step + 1 == args.init_steps else 1
-                for _ in range(num_updates):
-                    agent.update(replay_buffer, L, step + 1)
+            # # run training update second time now that we have added conjugate state
+            # if step + 1 >= args.init_steps:
+            #     num_updates = args.init_steps if step + 1 == args.init_steps else 1
+            #     for _ in range(num_updates):
+            #         agent.update(replay_buffer, L, step + 1)
 
         # allow infinite bootstrap
         done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(

@@ -204,6 +204,7 @@ class SacAeAgent(object):
         critic_beta=0.9,
         critic_tau=0.005,
         critic_target_update_freq=2,
+        critic_update_freq = 2,
         encoder_type='pixel',
         encoder_feature_dim=50,
         encoder_lr=1e-3,
@@ -222,6 +223,8 @@ class SacAeAgent(object):
         self.encoder_tau = encoder_tau
         self.actor_update_freq = actor_update_freq
         self.critic_target_update_freq = critic_target_update_freq
+        self.critic_update_freq = critic_update_freq
+
         self.decoder_update_freq = decoder_update_freq
         self.decoder_latent_lambda = decoder_latent_lambda
 
@@ -391,29 +394,31 @@ class SacAeAgent(object):
         self.decoder.log(L, step, log_freq=LOG_FREQ)
 
     def update(self, replay_buffer, L, step):
-        obs, action, reward, next_obs, not_done = replay_buffer.sample()
 
-        L.log('train/batch_reward', reward.mean(), step)
+        for i in range(2):
+            if step % self.critic_update_freq == 0:
+                obs, action, reward, next_obs, not_done = replay_buffer.sample()
 
-        self.update_critic(obs, action, reward, next_obs, not_done, L, step)
+                L.log('train/batch_reward', reward.mean(), step)
+                self.update_critic(obs, action, reward, next_obs, not_done, L, step)
 
-        if step % self.actor_update_freq == 0:
-            self.update_actor_and_alpha(obs, L, step)
+            if step % self.actor_update_freq == 0:
+                self.update_actor_and_alpha(obs, L, step)
 
-        if step % self.critic_target_update_freq == 0:
-            utils.soft_update_params(
-                self.critic.Q1, self.critic_target.Q1, self.critic_tau
-            )
-            utils.soft_update_params(
-                self.critic.Q2, self.critic_target.Q2, self.critic_tau
-            )
-            utils.soft_update_params(
-                self.critic.encoder, self.critic_target.encoder,
-                self.encoder_tau
-            )
+            if step % self.critic_target_update_freq == 0:
+                utils.soft_update_params(
+                    self.critic.Q1, self.critic_target.Q1, self.critic_tau
+                )
+                utils.soft_update_params(
+                    self.critic.Q2, self.critic_target.Q2, self.critic_tau
+                )
+                utils.soft_update_params(
+                    self.critic.encoder, self.critic_target.encoder,
+                    self.encoder_tau
+                )
 
-        if self.decoder is not None and step % self.decoder_update_freq == 0:
-            self.update_decoder(obs, obs, L, step)
+            if self.decoder is not None and step % self.decoder_update_freq == 0:
+                self.update_decoder(obs, obs, L, step)
 
     def save(self, model_dir, step):
         torch.save(
