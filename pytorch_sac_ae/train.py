@@ -21,7 +21,7 @@ from sac_ae import SacAeAgent
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--domain_name', default='cartpole')
+    parser.add_argument('--domain_name', default='acrobot')
     # parser.add_argument('--task_name', default='two_pole_balance')
     parser.add_argument('--task_name', default='swingup')
 
@@ -104,8 +104,13 @@ def conjugate_obs(obs, next_obs, args):
         conj_obs = next_obs.copy()
         conj_next_obs = obs.copy()
 
-        # hard coded for cartpole for now
-        for idx in [3,4]:
+        # # hard coded for cartpole for now
+        # for idx in [3,4]:
+        #     conj_obs[idx] = conj_obs[idx] * -1
+        #     conj_next_obs[idx] = conj_next_obs[idx] * -1
+
+        # hard coded for acrobot for now
+        for idx in [4,5]:
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
 
@@ -226,9 +231,9 @@ def main():
     with open(os.path.join(args.work_dir, 'args.json'), 'w') as f:
         json.dump(vars(args), f, sort_keys=True, indent=4)
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # device = 'cpu'
-    print('Using device ', 'cuda' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = 'cpu'
+    print('Using device ', device)
 
     # the dmc2gym wrapper standardizes actions
     assert env.action_space.low.min() >= -1
@@ -254,6 +259,8 @@ def main():
     # Determine which states we need to do conjugate state transformation on
     if args.time_rev:
         if args.domain_name == 'cartpole':
+            print("Running ", args.domain_name)
+        if args.domain_name == 'acrobot':
             print("Running ", args.domain_name)
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)

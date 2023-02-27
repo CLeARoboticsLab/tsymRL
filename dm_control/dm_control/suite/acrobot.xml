@@ -4,6 +4,7 @@ Based on Coulomb's [1] rather than Spong's [2] model.
     Diss. Institut National Polytechnique de Grenoble-INPG, 2002.
 [2] Spong, Mark W. "The swing up control problem for the acrobot."
     IEEE control systems 15, no. 1 (1995): 49-55.
+    was 0.05 for joint damping
 -->
 <mujoco model="acrobot">
   <include file="./common/visual.xml"/>
@@ -11,7 +12,7 @@ Based on Coulomb's [1] rather than Spong's [2] model.
   <include file="./common/materials.xml"/>
 
   <default>
-    <joint damping=".05"/>
+    <joint damping=".00"/>
     <geom type="capsule" mass="1"/>
   </default>
 
