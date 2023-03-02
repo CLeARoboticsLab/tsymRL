@@ -21,7 +21,7 @@ from sac_ae import SacAeAgent
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--domain_name', default='acrobot')
+    parser.add_argument('--domain_name', default='cartpole')
     # parser.add_argument('--task_name', default='two_pole_balance')
     parser.add_argument('--task_name', default='swingup')
 
@@ -79,6 +79,9 @@ def parse_args():
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
     parser.add_argument('--save_video', default=False, action='store_true')
+    parser.add_argument('--gpu_choice', default=2, type=int)
+
+
 
     args = parser.parse_args()
     return args
@@ -104,15 +107,15 @@ def conjugate_obs(obs, next_obs, args):
         conj_obs = next_obs.copy()
         conj_next_obs = obs.copy()
 
-        # # hard coded for cartpole for now
-        # for idx in [3,4]:
-        #     conj_obs[idx] = conj_obs[idx] * -1
-        #     conj_next_obs[idx] = conj_next_obs[idx] * -1
-
-        # hard coded for acrobot for now
-        for idx in [4,5]:
+        # hard coded for cartpole for now
+        for idx in [3,4]:
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
+
+        # hard coded for acrobot for now
+        # for idx in [4,5]:
+        #     conj_obs[idx] = conj_obs[idx] * -1
+        #     conj_next_obs[idx] = conj_next_obs[idx] * -1
 
     # elif args.task_name == 'five_pole_balance':
     #     conj_obs = next_obs.copy()
@@ -143,13 +146,15 @@ def conjugate_obs(obs, next_obs, args):
 def evaluate(env, agent, video, num_episodes, L, step):
     for i in range(num_episodes):
         obs = env.reset()
-        video.init(enabled=(i == 0))
+        video.init(enabled=(i == 1))
         done = False
         episode_reward = 0
         while not done:
+
             with utils.eval_mode(agent):
                 action = agent.select_action(obs)
             obs, reward, done, _ = env.step(action)
+
             video.record(env)
             episode_reward += reward
 
@@ -227,13 +232,20 @@ def main():
     buffer_dir = utils.make_dir(os.path.join(args.work_dir, 'buffer'))
 
     video = VideoRecorder(video_dir if args.save_video else None)
+    video.enabled=True
 
     with open(os.path.join(args.work_dir, 'args.json'), 'w') as f:
         json.dump(vars(args), f, sort_keys=True, indent=4)
 
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device = 'cpu'
+
+    torch.set_num_threads(8)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # device = 'cpu'
     print('Using device ', device)
+    if torch.cuda.is_available():
+        torch.cuda.set_device(args.gpu_choice)
+    print("Using device number", torch.cuda.current_device())
 
     # the dmc2gym wrapper standardizes actions
     assert env.action_space.low.min() >= -1
@@ -260,7 +272,7 @@ def main():
     if args.time_rev:
         if args.domain_name == 'cartpole':
             print("Running ", args.domain_name)
-        if args.domain_name == 'acrobot':
+        elif args.domain_name == 'acrobot':
             print("Running ", args.domain_name)
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
