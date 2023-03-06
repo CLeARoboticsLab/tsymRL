@@ -261,7 +261,7 @@ class Balance(base.Task):
                                           value_at_margin=0,
                                           sigmoid='quadratic')[0]
         small_control = (4 + small_control) / 5
-        small_velocity = rewards.tolerance(physics.angular_vel(), margin=5).min()
+        small_velocity = rewards.tolerance(-physics.angular_vel(), margin=5).min()
         small_velocity = (1 + small_velocity) / 2
         return upright.mean() * small_control * small_velocity * centered
 
