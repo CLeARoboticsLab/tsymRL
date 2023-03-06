@@ -21,9 +21,9 @@ from sac_ae import SacAeAgent
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--domain_name', default='cartpole')
+    parser.add_argument('--domain_name', default='humanoid')
     # parser.add_argument('--task_name', default='two_pole_balance')
-    parser.add_argument('--task_name', default='swingup')
+    parser.add_argument('--task_name', default='run')
 
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
@@ -34,7 +34,7 @@ def parse_args():
     # train
     parser.add_argument('--agent', default='sac_ae', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
-    parser.add_argument('--num_train_steps', default=50000, type=int)
+    parser.add_argument('--num_train_steps', default=600, type=int)
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
@@ -136,6 +136,12 @@ def conjugate_obs(obs, next_obs, args):
             conj_next_obs[idx] = conj_next_obs[idx] * -1
 
     # Return our conjugate obs (starting observation) and our conj_next_obs (where we transition to in reverse time)
+    elif args.task_name == 'run':
+        conj_obs = next_obs.copy()
+        conj_next_obs = obs.copy()
+        for idx in range(37, 67): # range doesn't include final number so real list is 37:66
+            conj_obs[idx] = conj_obs[idx] * -1
+            conj_next_obs[idx] = conj_next_obs[idx] * -1
     else:
         print('Unknown env ', args.task_name)
         print('Exiting....')
@@ -273,6 +279,8 @@ def main():
         if args.domain_name == 'cartpole':
             print("Running ", args.domain_name)
         elif args.domain_name == 'acrobot':
+            print("Running ", args.domain_name)
+        elif args.domain_name == 'humanoid':
             print("Running ", args.domain_name)
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
