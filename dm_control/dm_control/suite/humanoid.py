@@ -205,3 +205,29 @@ class Humanoid(base.Task):
                                sigmoid='linear')
       move = (5*move + 1) / 6
       return small_control * stand_reward * move
+
+  def get_rev_reward(self, physics, action):
+    """Returns a reward to the agent."""
+    standing = rewards.tolerance(physics.head_height(),
+                                 bounds=(_STAND_HEIGHT, float('inf')),
+                                 margin=_STAND_HEIGHT/4)
+    upright = rewards.tolerance(physics.torso_upright(),
+                                bounds=(0.9, float('inf')), sigmoid='linear',
+                                margin=1.9, value_at_margin=0)
+    stand_reward = standing * upright
+    small_control = rewards.tolerance(action, margin=1,
+                                      value_at_margin=0,
+                                      sigmoid='quadratic').mean()
+    small_control = (4 + small_control) / 5
+    if self._move_speed == 0:
+      horizontal_velocity = -physics.center_of_mass_velocity()[[0, 1]]
+      dont_move = rewards.tolerance(horizontal_velocity, margin=2).mean()
+      return small_control * stand_reward * dont_move
+    else:
+      com_velocity = np.linalg.norm(-physics.center_of_mass_velocity()[[0, 1]])
+      move = rewards.tolerance(com_velocity,
+                               bounds=(self._move_speed, float('inf')),
+                               margin=self._move_speed, value_at_margin=0,
+                               sigmoid='linear')
+      move = (5*move + 1) / 6
+      return small_control * stand_reward * move

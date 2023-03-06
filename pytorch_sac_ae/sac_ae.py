@@ -395,7 +395,7 @@ class SacAeAgent(object):
 
     def update(self, replay_buffer, L, step):
 
-        for i in range(1):
+        for i in range(2):
             if step % self.critic_update_freq == 0:
                 obs, action, reward, next_obs, not_done = replay_buffer.sample()
 
