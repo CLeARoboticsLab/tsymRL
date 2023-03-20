@@ -152,3 +152,20 @@ class PlanarWalker(base.Task):
                                       value_at_margin=0.5,
                                       sigmoid='linear')
       return stand_reward * (5*move_reward + 1) / 6
+  def get_rev_reward(self, physics, action):
+    
+    """Returns a reward to the agent."""
+    standing = rewards.tolerance(physics.torso_height(),
+                                 bounds=(_STAND_HEIGHT, float('inf')),
+                                 margin=_STAND_HEIGHT/2)
+    upright = (1 + physics.torso_upright()) / 2
+    stand_reward = (3*standing + upright) / 4
+    if self._move_speed == 0:
+      return stand_reward
+    else:
+      move_reward = rewards.tolerance(-physics.horizontal_velocity(),
+                                      bounds=(self._move_speed, float('inf')),
+                                      margin=self._move_speed/2,
+                                      value_at_margin=0.5,
+                                      sigmoid='linear')
+      return stand_reward * (5*move_reward + 1) / 6

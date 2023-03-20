@@ -28,6 +28,8 @@ from dm_control.suite import cheetah
 from dm_control.suite import dog
 from dm_control.suite import finger
 from dm_control.suite import fish
+from dm_control.suite import foot
+
 from dm_control.suite import hopper
 from dm_control.suite import humanoid
 from dm_control.suite import humanoid_CMU

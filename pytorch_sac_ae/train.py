@@ -21,9 +21,9 @@ from sac_ae import SacAeAgent
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--domain_name', default='humanoid')
+    parser.add_argument('--domain_name', default='cartpole')
     # parser.add_argument('--task_name', default='two_pole_balance')
-    parser.add_argument('--task_name', default='run')
+    parser.add_argument('--task_name', default='swingup')
 
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
@@ -79,8 +79,72 @@ def parse_args():
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
     parser.add_argument('--save_video', default=False, action='store_true')
-    parser.add_argument('--gpu_choice', default=2, type=int)
+    parser.add_argument('--gpu_choice', default=0, type=int)
 
+
+
+
+
+
+    # parser.add_argument('--domain_name', default='walker')
+    # # parser.add_argument('--task_name', default='two_pole_balance')
+    # parser.add_argument('--task_name', default='stand')
+
+    # parser.add_argument('--image_size', default=84, type=int)
+    # parser.add_argument('--action_repeat', default=1, type=int)
+    # parser.add_argument('--frame_stack', default=3, type=int)
+    # parser.add_argument('--time_rev', default=False, type=bool)
+    # # replay buffer
+    # parser.add_argument('--replay_buffer_capacity', default=100000, type=int)
+    # # train
+    # parser.add_argument('--agent', default='sac_ae', type=str)
+    # parser.add_argument('--init_steps', default=1000, type=int)
+    # parser.add_argument('--num_train_steps', default=50000, type=int)
+    # parser.add_argument('--batch_size', default=1024, type=int)
+    # parser.add_argument('--hidden_dim', default=1024, type=int)
+    # # eval
+    # parser.add_argument('--eval_freq', default=2000, type=int)
+    # parser.add_argument('--num_eval_episodes', default=10, type=int)
+    # # critic
+    # parser.add_argument('--critic_lr', default=1e-4, type=float)
+    # parser.add_argument('--critic_beta', default=0.9, type=float)
+    # parser.add_argument('--critic_tau', default=0.005, type=float)
+    # parser.add_argument('--critic_target_update_freq', default=2, type=int)
+    # parser.add_argument('--critic_update_freq', default=2, type=int)
+    # # actor
+    # parser.add_argument('--actor_lr', default=1e-4, type=float)
+    # parser.add_argument('--actor_beta', default=0.9, type=float)
+    # parser.add_argument('--actor_log_std_min', default=-5, type=float)
+    # parser.add_argument('--actor_log_std_max', default=2, type=float)
+    # parser.add_argument('--actor_update_freq', default=2, type=int)
+    # # encoder/decoder
+    # # parser.add_argument('--encoder_type', default='pixel', type=str)
+    # parser.add_argument('--encoder_type', default='identity', type=str)
+    # parser.add_argument('--encoder_feature_dim', default=50, type=int)
+    # parser.add_argument('--encoder_lr', default=1e-3, type=float)
+    # parser.add_argument('--encoder_tau', default=0.05, type=float)
+    # # parser.add_argument('--decoder_type', default='pixel', type=str)
+    # parser.add_argument('--decoder_type', default='identity', type=str)
+
+    # parser.add_argument('--decoder_lr', default=1e-3, type=float)
+    # parser.add_argument('--decoder_update_freq', default=1, type=int)
+    # parser.add_argument('--decoder_latent_lambda', default=1e-6, type=float)
+    # parser.add_argument('--decoder_weight_lambda', default=1e-7, type=float)
+    # parser.add_argument('--num_layers', default=4, type=int)
+    # parser.add_argument('--num_filters', default=32, type=int)
+    # # sac
+    # parser.add_argument('--discount', default=0.99, type=float)
+    # parser.add_argument('--init_temperature', default=0.1, type=float)
+    # parser.add_argument('--alpha_lr', default=1e-4, type=float)
+    # parser.add_argument('--alpha_beta', default=0.9, type=float)
+    # # misc
+    # parser.add_argument('--seed', default=2, type=int)
+    # parser.add_argument('--work_dir', default='./log_false', type=str)
+    # parser.add_argument('--save_tb', default=True, action='store_true')
+    # parser.add_argument('--save_model', default=False, action='store_true')
+    # parser.add_argument('--save_buffer', default=False, action='store_true')
+    # parser.add_argument('--save_video', default=False, action='store_true')
+    # parser.add_argument('--gpu_choice', default=2, type=int)
 
 
     args = parser.parse_args()
@@ -126,7 +190,7 @@ def conjugate_obs(obs, next_obs, args):
     #         conj_obs[idx] = conj_obs[idx] * -1
     #         conj_next_obs[idx] = conj_next_obs[idx] * -1
 
-    elif args.task_name == 'two_pole_balance':
+    elif args.task_name == 'two_pole_balance' or args.task_name == 'two_poles':
         conj_obs = next_obs.copy()
         conj_next_obs = obs.copy()
 
@@ -136,10 +200,16 @@ def conjugate_obs(obs, next_obs, args):
             conj_next_obs[idx] = conj_next_obs[idx] * -1
 
     # Return our conjugate obs (starting observation) and our conj_next_obs (where we transition to in reverse time)
-    elif args.task_name == 'run':
+    elif args.task_name == 'run' and args.domain_name == 'humanoid':
         conj_obs = next_obs.copy()
         conj_next_obs = obs.copy()
         for idx in range(37, 67): # range doesn't include final number so real list is 37:66
+            conj_obs[idx] = conj_obs[idx] * -1
+            conj_next_obs[idx] = conj_next_obs[idx] * -1
+    elif args.task_name == 'stand' or args.task_name == 'run' and args.domain_name == 'walker':
+        conj_obs = next_obs.copy()
+        conj_next_obs = obs.copy()
+        for idx in range(15, 24): # range doesn't include final number so real list is 37:66
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
     else:
@@ -244,7 +314,7 @@ def main():
         json.dump(vars(args), f, sort_keys=True, indent=4)
 
 
-    torch.set_num_threads(8)
+    torch.set_num_threads(6)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # device = 'cpu'
@@ -282,6 +352,8 @@ def main():
             print("Running ", args.domain_name)
         elif args.domain_name == 'humanoid':
             print("Running ", args.domain_name)
+        elif args.domain_name == 'walker':
+            print("Running ", args.domain_name)
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
             return
@@ -291,6 +363,7 @@ def main():
 
 
     episode, episode_reward, done = 0, 0, True
+    episode_rev_reward = 0
     start_time = time.time()
     iter_train_steps = iter(range(args.num_train_steps))
     for step in iter_train_steps:
@@ -318,6 +391,9 @@ def main():
             # L.log('train/episode_reward', episode_reward, rel_step * step)
             L.log('train/episode_reward', episode_reward, step)
 
+            if args.time_rev:   
+                L.log('train/episode_rev_reward', episode_rev_reward, step)
+                episode_rev_reward = 0
 
             obs = env.reset()
             done = False
@@ -359,6 +435,7 @@ def main():
             else: 
                 conj_done = False
             replay_buffer.add(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
+            episode_rev_reward += extra['rev_reward']
 
             # # run training update second time now that we have added conjugate state
             # if step + 1 >= args.init_steps:
