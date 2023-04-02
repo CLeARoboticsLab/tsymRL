@@ -30,36 +30,36 @@ def parse_args():
     parser.add_argument('--frame_stack', default=3, type=int)
     parser.add_argument('--time_rev', default=False, type=bool)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=100000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=200000, type=int)
     # train
     parser.add_argument('--agent', default='sac_ae', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
-    parser.add_argument('--num_train_steps', default=50000, type=int)
+    parser.add_argument('--num_train_steps', default=200000, type=int)
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
-    parser.add_argument('--eval_freq', default=2000, type=int)
-    parser.add_argument('--num_eval_episodes', default=10, type=int)
+    parser.add_argument('--eval_freq', default=8000, type=int)
+    parser.add_argument('--num_eval_episodes', default=1, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
     parser.add_argument('--critic_beta', default=0.9, type=float)
     parser.add_argument('--critic_tau', default=0.01, type=float)
     parser.add_argument('--critic_target_update_freq', default=2, type=int)
-    parser.add_argument('--critic_update_freq', default=2, type=int)
+    parser.add_argument('--critic_update_freq', default=1, type=int)
     # actor
     parser.add_argument('--actor_lr', default=1e-3, type=float)
     parser.add_argument('--actor_beta', default=0.9, type=float)
     parser.add_argument('--actor_log_std_min', default=-10, type=float)
     parser.add_argument('--actor_log_std_max', default=2, type=float)
-    parser.add_argument('--actor_update_freq', default=2, type=int)
+    parser.add_argument('--actor_update_freq', default=1, type=int)
     # encoder/decoder
-    # parser.add_argument('--encoder_type', default='pixel', type=str)
-    parser.add_argument('--encoder_type', default='identity', type=str)
+    parser.add_argument('--encoder_type', default='pixel', type=str)
+    # parser.add_argument('--encoder_type', default='identity', type=str)
     parser.add_argument('--encoder_feature_dim', default=50, type=int)
     parser.add_argument('--encoder_lr', default=1e-3, type=float)
     parser.add_argument('--encoder_tau', default=0.05, type=float)
-    # parser.add_argument('--decoder_type', default='pixel', type=str)
-    parser.add_argument('--decoder_type', default='identity', type=str)
+    parser.add_argument('--decoder_type', default='pixel', type=str)
+    # parser.add_argument('--decoder_type', default='identity', type=str)
 
     parser.add_argument('--decoder_lr', default=1e-3, type=float)
     parser.add_argument('--decoder_update_freq', default=1, type=int)
@@ -77,7 +77,7 @@ def parse_args():
     parser.add_argument('--work_dir', default='./log_false', type=str)
     parser.add_argument('--save_tb', default=True, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
-    parser.add_argument('--save_buffer', default=False, action='store_true')
+    parser.add_argument('--save_buffer', default=True, action='store_true')
     parser.add_argument('--save_video', default=False, action='store_true')
     parser.add_argument('--gpu_choice', default=0, type=int)
 
@@ -335,6 +335,14 @@ def main():
         device=device
     )
 
+    dual_buffer = utils.DualReplayBuffer(
+        pix_obs_shape=env.observation_space.shape,
+        prop_obs_shape=env.state_space.shape,
+        capacity=args.replay_buffer_capacity,
+        batch_size=args.batch_size,
+        device=device
+    )
+
     agent = make_agent(
         obs_shape=env.observation_space.shape,
         action_shape=env.action_space.shape,
@@ -386,7 +394,8 @@ def main():
                 if args.save_model:
                     agent.save(model_dir, step)
                 if args.save_buffer:
-                    replay_buffer.save(buffer_dir)
+                    # replay_buffer.save(buffer_dir)
+                    dual_buffer.save(buffer_dir)
 
             # L.log('train/episode_reward', episode_reward, rel_step * step)
             L.log('train/episode_reward', episode_reward, step)
@@ -451,8 +460,11 @@ def main():
 
         replay_buffer.add(obs, action, reward, next_obs, done_bool)
 
+        dual_buffer.add(obs, extra['prop_obs'])
+
         obs = next_obs
         episode_step += 1
+    # dual_buffer.save(buffer_dir)
 
 
 if __name__ == '__main__':

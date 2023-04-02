@@ -139,6 +139,64 @@ class ReplayBuffer(object):
             self.not_dones[start:end] = payload[4]
             self.idx = end
 
+class DualReplayBuffer(object):
+    """Buffer to store environment transitions in both image and proprioceptive state."""
+    def __init__(self, pix_obs_shape, prop_obs_shape, capacity, batch_size, device):
+        self.capacity = capacity
+        self.batch_size = batch_size
+        self.device = device
+
+        # the proprioceptive obs is stored as float32, pixels obs as uint8
+        # obs_dtype = np.float32 if len(obs_shape) == 1 else np.uint8
+
+        self.pix_obses = np.empty((capacity, *pix_obs_shape), dtype=np.uint8)
+        self.prop_obses = np.empty((capacity, *prop_obs_shape), dtype=np.float32)
+
+        self.idx = 0
+        self.last_save = 0
+        self.full = False
+
+    def add(self, pix_obs, prop_obs):
+        np.copyto(self.pix_obses[self.idx], pix_obs)
+        np.copyto(self.prop_obses[self.idx], prop_obs)
+
+        self.idx = (self.idx + 1) % self.capacity
+        self.full = self.full or self.idx == 0
+
+    def sample(self):
+        idxs = np.random.randint(
+            0, self.capacity if self.full else self.idx, size=self.batch_size
+        )
+
+        pix_obses = torch.as_tensor(self.pix_obses[idxs], device=self.device).float()
+        prop_obses = torch.as_tensor(self.prop_obses[idxs], device=self.device).float()
+
+        return pix_obses, prop_obses
+
+    def save(self, save_dir):
+
+        path = os.path.join(save_dir, '%d_%d.pt' % (self.last_save, self.idx))
+        payload = [
+            self.pix_obses[self.last_save:self.idx],
+            self.prop_obses[self.last_save:self.idx],
+        ]
+        self.last_save = self.idx
+        torch.save(payload, path)
+
+    def load(self, save_dir):
+        chunks = os.listdir(save_dir)
+        chucks = sorted(chunks, key=lambda x: int(x.split('_')[0]))
+        for chunk in chucks:
+            start, end = [int(x) for x in chunk.split('.')[0].split('_')]
+            path = os.path.join(save_dir, chunk)
+            payload = torch.load(path)
+            assert self.idx == start
+            self.pix_obses[start:end] = payload[0]
+            self.prop_obses[start:end] = payload[1]
+            self.idx = end
+        print("Loaded ", end, " datapoints")
+
+
 
 class FrameStack(gym.Wrapper):
     def __init__(self, env, k):
