@@ -84,8 +84,6 @@ def parse_args():
     parser.add_argument('--gpu_choice', default=0, type=int)
     parser.add_argument('--gym_env', default=True, action='store_true')
 
-
-
     args = parser.parse_args()
     return args
 
@@ -114,20 +112,6 @@ def conjugate_obs(obs, next_obs, args):
         for idx in [3,4]:
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
-
-        # hard coded for acrobot for now
-        # for idx in [4,5]:
-        #     conj_obs[idx] = conj_obs[idx] * -1
-        #     conj_next_obs[idx] = conj_next_obs[idx] * -1
-
-    # elif args.task_name == 'five_pole_balance':
-    #     conj_obs = next_obs.copy()
-    #     conj_next_obs = obs.copy()
-
-    #     # hard coded for cartpole for now
-    #     for idx in [12, 13, 14, 15, 16]:
-    #         conj_obs[idx] = conj_obs[idx] * -1
-    #         conj_next_obs[idx] = conj_next_obs[idx] * -1
 
     elif args.task_name == 'two_pole_balance' or args.task_name == 'two_poles':
         conj_obs = next_obs.copy()
@@ -332,7 +316,6 @@ def main():
     L = Logger(args.work_dir, use_tb=args.save_tb)
     step_since_last_eval = 0
 
-
     # Determine which states we need to do conjugate state transformation on
     if args.time_rev:
         if args.domain_name == 'cartpole':
@@ -346,11 +329,7 @@ def main():
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
             return
-        # rel_step = 1/2
-    # else:
-        # rel_step = 1
-
-
+        
     episode, episode_reward, done = 0, 0, True
     episode_rev_reward = 0
     start_time = time.time()
@@ -360,18 +339,14 @@ def main():
             if step > 0:
                 L.log('train/duration', time.time() - start_time, step)
                 start_time = time.time()
-                # L.dump(rel_step * step)
                 L.dump(step)
 
 
             # evaluate agent periodically
-            # if step % args.eval_freq == 0:
             if step_since_last_eval > args.eval_freq:
                 step_since_last_eval = 0
-                # L.log('eval/episode', episode, rel_step * step)
                 L.log('eval/episode', episode, step)
 
-                # evaluate(env, agent, video, args.num_eval_episodes, L, rel_step * step)
                 evaluate(env, agent, video, args.num_eval_episodes, L, step, args)
 
                 if args.save_model:
@@ -380,7 +355,6 @@ def main():
                     replay_buffer.save(buffer_dir)
                     # dual_buffer.save(buffer_dir)
 
-            # L.log('train/episode_reward', episode_reward, rel_step * step)
             L.log('train/episode_reward', episode_reward, step)
 
             if args.time_rev:   
@@ -397,7 +371,6 @@ def main():
             episode_step = 0
             episode += 1
 
-            # L.log('train/episode', episode, rel_step * step)
             L.log('train/episode', episode, step)
         step_since_last_eval += 1
         # sample action for data collection
@@ -414,7 +387,6 @@ def main():
                 agent.update(replay_buffer, L, step)
 
         # Modified this since the dmc2gym wrapper gives us internal state for free in the extras dict
-        # next_obs, reward, done, extra = env.step(action)
         if args.gym_env == True:
             next_obs, reward, terminated, truncated, _ = env.step(action)
             done = terminated or truncated
@@ -423,9 +395,6 @@ def main():
 
         # If time symmetric is being used then do the reverse time step
         if args.time_rev:
-
-            # # Advance the iterator for training steps
-            # _ = next(iter_train_steps)
 
             # Find conjugate current and next observations
             conj_obs, conj_next_obs = conjugate_obs(obs, next_obs, args)
@@ -438,11 +407,6 @@ def main():
             replay_buffer.add(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
             episode_rev_reward += extra['rev_reward']
 
-            # # run training update second time now that we have added conjugate state
-            # if step + 1 >= args.init_steps:
-            #     num_updates = args.init_steps if step + 1 == args.init_steps else 1
-            #     for _ in range(num_updates):
-            #         agent.update(replay_buffer, L, step + 1)
 
         # allow infinite bootstrap
         if args.gym_env == True:
