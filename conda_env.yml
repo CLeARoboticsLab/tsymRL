@@ -20,3 +20,5 @@ dependencies:
     - imageio
     - imageio-ffmpeg
     - torchaudio
+    - gymnasium==0.27.1
+    - highway-env

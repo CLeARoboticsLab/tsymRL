@@ -10,6 +10,8 @@ import time
 import json
 import dmc2gym
 import copy
+import gymnasium as gym
+from gymnasium.wrappers import FlattenObservation
 
 import utils
 from logger import Logger
@@ -30,16 +32,16 @@ def parse_args():
     parser.add_argument('--frame_stack', default=3, type=int)
     parser.add_argument('--time_rev', default=False, type=bool)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=200000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=1200000, type=int)
     # train
     parser.add_argument('--agent', default='sac_ae', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
-    parser.add_argument('--num_train_steps', default=200000, type=int)
+    parser.add_argument('--num_train_steps', default=1200000, type=int)
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
-    parser.add_argument('--eval_freq', default=8000, type=int)
-    parser.add_argument('--num_eval_episodes', default=1, type=int)
+    parser.add_argument('--eval_freq', default=1000, type=int)
+    parser.add_argument('--num_eval_episodes', default=10, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
     parser.add_argument('--critic_beta', default=0.9, type=float)
@@ -53,13 +55,13 @@ def parse_args():
     parser.add_argument('--actor_log_std_max', default=2, type=float)
     parser.add_argument('--actor_update_freq', default=1, type=int)
     # encoder/decoder
-    parser.add_argument('--encoder_type', default='pixel', type=str)
-    # parser.add_argument('--encoder_type', default='identity', type=str)
+    # parser.add_argument('--encoder_type', default='pixel', type=str)
+    parser.add_argument('--encoder_type', default='identity', type=str)
     parser.add_argument('--encoder_feature_dim', default=50, type=int)
     parser.add_argument('--encoder_lr', default=1e-3, type=float)
     parser.add_argument('--encoder_tau', default=0.05, type=float)
-    parser.add_argument('--decoder_type', default='pixel', type=str)
-    # parser.add_argument('--decoder_type', default='identity', type=str)
+    # parser.add_argument('--decoder_type', default='pixel', type=str)
+    parser.add_argument('--decoder_type', default='identity', type=str)
 
     parser.add_argument('--decoder_lr', default=1e-3, type=float)
     parser.add_argument('--decoder_update_freq', default=1, type=int)
@@ -74,77 +76,14 @@ def parse_args():
     parser.add_argument('--alpha_beta', default=0.5, type=float)
     # misc
     parser.add_argument('--seed', default=2, type=int)
-    parser.add_argument('--work_dir', default='./log_false', type=str)
+    parser.add_argument('--work_dir', default='./hand_log/gripper_sparse2', type=str)
     parser.add_argument('--save_tb', default=True, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
-    parser.add_argument('--save_buffer', default=True, action='store_true')
+    parser.add_argument('--save_buffer', default=False, action='store_true')
     parser.add_argument('--save_video', default=False, action='store_true')
     parser.add_argument('--gpu_choice', default=0, type=int)
+    parser.add_argument('--gym_env', default=True, action='store_true')
 
-
-
-
-
-
-    # parser.add_argument('--domain_name', default='walker')
-    # # parser.add_argument('--task_name', default='two_pole_balance')
-    # parser.add_argument('--task_name', default='stand')
-
-    # parser.add_argument('--image_size', default=84, type=int)
-    # parser.add_argument('--action_repeat', default=1, type=int)
-    # parser.add_argument('--frame_stack', default=3, type=int)
-    # parser.add_argument('--time_rev', default=False, type=bool)
-    # # replay buffer
-    # parser.add_argument('--replay_buffer_capacity', default=100000, type=int)
-    # # train
-    # parser.add_argument('--agent', default='sac_ae', type=str)
-    # parser.add_argument('--init_steps', default=1000, type=int)
-    # parser.add_argument('--num_train_steps', default=50000, type=int)
-    # parser.add_argument('--batch_size', default=1024, type=int)
-    # parser.add_argument('--hidden_dim', default=1024, type=int)
-    # # eval
-    # parser.add_argument('--eval_freq', default=2000, type=int)
-    # parser.add_argument('--num_eval_episodes', default=10, type=int)
-    # # critic
-    # parser.add_argument('--critic_lr', default=1e-4, type=float)
-    # parser.add_argument('--critic_beta', default=0.9, type=float)
-    # parser.add_argument('--critic_tau', default=0.005, type=float)
-    # parser.add_argument('--critic_target_update_freq', default=2, type=int)
-    # parser.add_argument('--critic_update_freq', default=2, type=int)
-    # # actor
-    # parser.add_argument('--actor_lr', default=1e-4, type=float)
-    # parser.add_argument('--actor_beta', default=0.9, type=float)
-    # parser.add_argument('--actor_log_std_min', default=-5, type=float)
-    # parser.add_argument('--actor_log_std_max', default=2, type=float)
-    # parser.add_argument('--actor_update_freq', default=2, type=int)
-    # # encoder/decoder
-    # # parser.add_argument('--encoder_type', default='pixel', type=str)
-    # parser.add_argument('--encoder_type', default='identity', type=str)
-    # parser.add_argument('--encoder_feature_dim', default=50, type=int)
-    # parser.add_argument('--encoder_lr', default=1e-3, type=float)
-    # parser.add_argument('--encoder_tau', default=0.05, type=float)
-    # # parser.add_argument('--decoder_type', default='pixel', type=str)
-    # parser.add_argument('--decoder_type', default='identity', type=str)
-
-    # parser.add_argument('--decoder_lr', default=1e-3, type=float)
-    # parser.add_argument('--decoder_update_freq', default=1, type=int)
-    # parser.add_argument('--decoder_latent_lambda', default=1e-6, type=float)
-    # parser.add_argument('--decoder_weight_lambda', default=1e-7, type=float)
-    # parser.add_argument('--num_layers', default=4, type=int)
-    # parser.add_argument('--num_filters', default=32, type=int)
-    # # sac
-    # parser.add_argument('--discount', default=0.99, type=float)
-    # parser.add_argument('--init_temperature', default=0.1, type=float)
-    # parser.add_argument('--alpha_lr', default=1e-4, type=float)
-    # parser.add_argument('--alpha_beta', default=0.9, type=float)
-    # # misc
-    # parser.add_argument('--seed', default=2, type=int)
-    # parser.add_argument('--work_dir', default='./log_false', type=str)
-    # parser.add_argument('--save_tb', default=True, action='store_true')
-    # parser.add_argument('--save_model', default=False, action='store_true')
-    # parser.add_argument('--save_buffer', default=False, action='store_true')
-    # parser.add_argument('--save_video', default=False, action='store_true')
-    # parser.add_argument('--gpu_choice', default=2, type=int)
 
 
     args = parser.parse_args()
@@ -219,9 +158,12 @@ def conjugate_obs(obs, next_obs, args):
     return conj_obs, conj_next_obs
 
 
-def evaluate(env, agent, video, num_episodes, L, step):
+def evaluate(env, agent, video, num_episodes, L, step, args):
     for i in range(num_episodes):
-        obs = env.reset()
+        if args.gym_env == True:
+            obs, _ = env.reset()
+        else:
+            obs = env.reset()
         video.init(enabled=(i == 1))
         done = False
         episode_reward = 0
@@ -229,7 +171,11 @@ def evaluate(env, agent, video, num_episodes, L, step):
 
             with utils.eval_mode(agent):
                 action = agent.select_action(obs)
-            obs, reward, done, _ = env.step(action)
+            if args.gym_env == True:
+                obs, reward, terminated, truncated, _ = env.step(action)
+                done = terminated or truncated
+            else:
+                obs, reward, done, _ = env.step(action)
 
             video.record(env)
             episode_reward += reward
@@ -285,18 +231,51 @@ def main():
     print("Work dir is ", str(args.work_dir))
     utils.set_seed_everywhere(args.seed)
 
-    env = dmc2gym.make(
-        domain_name=args.domain_name,
-        task_name=args.task_name,
-        seed=args.seed,
-        visualize_reward=False,
-        from_pixels=(args.encoder_type == 'pixel'),
-        height=args.image_size,
-        width=args.image_size,
-        frame_skip=args.action_repeat,
-        time_rev = args.time_rev
-    )
-    env.seed(args.seed)
+    # env = dmc2gym.make(
+    #     domain_name=args.domain_name,
+    #     task_name=args.task_name,
+    #     seed=args.seed,
+    #     visualize_reward=False,
+    #     from_pixels=(args.encoder_type == 'pixel'),
+    #     height=args.image_size,
+    #     width=args.image_size,
+    #     frame_skip=args.action_repeat,
+    #     time_rev = args.time_rev
+    # )
+
+    # env.seed(args.seed)
+
+
+    # config = {
+    #     "observation": {
+    #         "type": "Kinematics",
+    #         # "vehicles_count": 50,
+    #         "absolute": False,
+    #         "duration": 100,
+    #         "order": "sorted"
+    #     },
+    #     "action": {
+    #         "type": "ContinuousAction"
+    #     }
+    # }
+
+    # config = {
+    #     "action": {
+    #         "type": "ContinuousAction"
+    #     }
+    # }
+
+    # env = gym.make('highway-fast-v0')
+    # env = gym.make('two-way-v0')
+    # env = gym.make('HandReach-v1')
+    env = gym.make('FetchReach-v3')
+
+
+    # env.configure(config)
+
+    env.reset(seed=args.seed)
+    env.action_space.seed(args.seed)
+    env = FlattenObservation(env)
 
     # stack several consecutive frames together
     if args.encoder_type == 'pixel':
@@ -335,13 +314,13 @@ def main():
         device=device
     )
 
-    dual_buffer = utils.DualReplayBuffer(
-        pix_obs_shape=env.observation_space.shape,
-        prop_obs_shape=env.state_space.shape,
-        capacity=args.replay_buffer_capacity,
-        batch_size=args.batch_size,
-        device=device
-    )
+    # dual_buffer = utils.DualReplayBuffer(
+    #     pix_obs_shape=env.observation_space.shape,
+    #     prop_obs_shape=env.state_space.shape,
+    #     capacity=args.replay_buffer_capacity,
+    #     batch_size=args.batch_size,
+    #     device=device
+    # )
 
     agent = make_agent(
         obs_shape=env.observation_space.shape,
@@ -351,6 +330,8 @@ def main():
     )
 
     L = Logger(args.work_dir, use_tb=args.save_tb)
+    step_since_last_eval = 0
+
 
     # Determine which states we need to do conjugate state transformation on
     if args.time_rev:
@@ -384,18 +365,20 @@ def main():
 
 
             # evaluate agent periodically
-            if step % args.eval_freq == 0:
+            # if step % args.eval_freq == 0:
+            if step_since_last_eval > args.eval_freq:
+                step_since_last_eval = 0
                 # L.log('eval/episode', episode, rel_step * step)
                 L.log('eval/episode', episode, step)
 
                 # evaluate(env, agent, video, args.num_eval_episodes, L, rel_step * step)
-                evaluate(env, agent, video, args.num_eval_episodes, L, step)
+                evaluate(env, agent, video, args.num_eval_episodes, L, step, args)
 
                 if args.save_model:
                     agent.save(model_dir, step)
                 if args.save_buffer:
-                    # replay_buffer.save(buffer_dir)
-                    dual_buffer.save(buffer_dir)
+                    replay_buffer.save(buffer_dir)
+                    # dual_buffer.save(buffer_dir)
 
             # L.log('train/episode_reward', episode_reward, rel_step * step)
             L.log('train/episode_reward', episode_reward, step)
@@ -404,7 +387,11 @@ def main():
                 L.log('train/episode_rev_reward', episode_rev_reward, step)
                 episode_rev_reward = 0
 
-            obs = env.reset()
+            if args.gym_env == True:
+                obs, _ = env.reset()
+            else:
+                obs = env.reset()
+
             done = False
             episode_reward = 0
             episode_step = 0
@@ -412,7 +399,7 @@ def main():
 
             # L.log('train/episode', episode, rel_step * step)
             L.log('train/episode', episode, step)
-
+        step_since_last_eval += 1
         # sample action for data collection
         if step < args.init_steps:
             action = env.action_space.sample()
@@ -427,7 +414,12 @@ def main():
                 agent.update(replay_buffer, L, step)
 
         # Modified this since the dmc2gym wrapper gives us internal state for free in the extras dict
-        next_obs, reward, done, extra = env.step(action)
+        # next_obs, reward, done, extra = env.step(action)
+        if args.gym_env == True:
+            next_obs, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+        else:
+            next_obs, reward, done, extra = env.step(action)
 
         # If time symmetric is being used then do the reverse time step
         if args.time_rev:
@@ -453,14 +445,17 @@ def main():
             #         agent.update(replay_buffer, L, step + 1)
 
         # allow infinite bootstrap
-        done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(
-            done
-        )
+        if args.gym_env == True:
+            done_bool = 0 if truncated else float(terminated)
+        else:
+            done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(
+                done
+            )
         episode_reward += reward
 
         replay_buffer.add(obs, action, reward, next_obs, done_bool)
 
-        dual_buffer.add(obs, extra['prop_obs'])
+        # dual_buffer.add(obs, extra['prop_obs'])
 
         obs = next_obs
         episode_step += 1
