@@ -80,6 +80,7 @@ class BuildMJBindingsCommand(setuptools.Command):
        'Place generated files in source directory rather than `build-lib`.'),
   ]
   boolean_options = ['inplace']
+  print("here")
 
   def initialize_options(self):
     _initialize_mjbindings_options(self)
@@ -201,7 +202,7 @@ notebook: [Open In Google Colab](https://colab.research.google.com/github/deepmi
         'glfw',
         'labmaze',
         'lxml',
-        'mujoco == 2.3.3',
+        'mujoco == 2.3.2',
         'numpy >= 1.9.0',
         'protobuf >= 3.19.4',  # TensorFlow requires protobuf<3.20 (b/182876485)
         'pyopengl >= 3.1.4',
