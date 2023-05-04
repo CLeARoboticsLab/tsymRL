@@ -146,22 +146,41 @@ def five_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=5,
 
 def _make_model(n_poles):
   """Generates an xml string defining a cart with `n_poles` bodies."""
-  xml_string = common.read_model('pendulum.xml')
+  xml_string = common.read_model('half_varmass_pend.xml')
   if n_poles == 1:
     return xml_string
   mjcf = etree.fromstring(xml_string)
+
+  distance = np.arange(0.5, 0.5 + n_poles)
+  masses = np.linspace(10,10-n_poles+1,n_poles) * 0.25
+
+  # Calculate the dot product of the masses and their distances from the pivot point to figure out how much torque we need
+  gear = np.dot(masses[-5:], distance[:5]) * 8 # 5 is the base of the 5 link system
+
   parent = mjcf.find('./worldbody/body')  # Find first pole.
+  parent_geom = mjcf.find('./worldbody/body/geom')  # Find first pole.
+
   act_parent = mjcf.find('./actuator')  # Find actuator parent class
+
+  first_act = mjcf.find('./actuator/motor')  # Find actuator parent class
+
+  # Edit the first pole mass and the actuator for the first hinge based on how many poles we are dealing with
+  parent_geom.set('mass', '{}'.format(2.5))
+  # actuator_scale = 8 # each actuator can lift all downstream mass
+  actuator_scale = 4 # each actuator can lift half downstream mass
+
+  first_act.set('gear', '{}'.format(np.dot(masses[-n_poles:], distance[:n_poles]) * actuator_scale))
 
   # Make chain of poles.
   for pole_index in range(2, n_poles+1):
     child = etree.Element('body', name='pole_{}'.format(pole_index),
                           pos='0 0 1', childclass='pole')
+    # child.set('mass', '{}'.format(masses[pole_index]))
     etree.SubElement(child, 'joint', name='hinge_{}'.format(pole_index))
     # Add the actuator for this joint
-    actuator = etree.Element('motor', name='pole_{}_base'.format(pole_index), joint = 'hinge_{}'.format(pole_index), gear="20", ctrllimited="true", ctrlrange="-1 1")
+    actuator = etree.Element('motor', name='pole_{}_base'.format(pole_index), joint = 'hinge_{}'.format(pole_index), gear='{}'.format(np.dot(masses[-(n_poles - pole_index + 1):], distance[:(n_poles - pole_index + 1)]) * actuator_scale), ctrllimited="true", ctrlrange="-1 1")
     # Add the pole geometry and advance the parent child pole tree
-    etree.SubElement(child, 'geom', name='pole_{}'.format(pole_index))
+    etree.SubElement(child, 'geom', name='pole_{}'.format(pole_index), mass='{}'.format(masses[pole_index-1]))
     parent.append(child)
     act_parent.append(actuator)
     parent = child

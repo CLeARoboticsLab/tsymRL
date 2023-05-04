@@ -30,6 +30,12 @@ from dm_control.suite import finger
 from dm_control.suite import fish
 from dm_control.suite import foot
 
+from dm_control.suite import multiact_cartpole
+from dm_control.suite import fixed_multipole
+from dm_control.suite import varmass_pend
+from dm_control.suite import half_varmass_pend
+
+
 from dm_control.suite import hopper
 from dm_control.suite import humanoid
 from dm_control.suite import humanoid_CMU

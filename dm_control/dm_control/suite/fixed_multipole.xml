@@ -1,0 +1,42 @@
+<mujoco model="fixed-multipole">
+  <include file="./common/skybox.xml"/>
+  <include file="./common/visual.xml"/>
+  <include file="./common/materials.xml"/>
+
+  <option timestep="0.01" integrator="RK4">
+    <flag contact="disable" energy="enable"/>
+  </option>
+
+  <default>
+    <default class="pole">
+      <joint type="hinge" axis="0 1 0"  damping="0.0"/>
+      <geom type="capsule" fromto="0 0 0 0 0 1" size="0.045" material="self" mass=".1"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <light name="light" pos="0 0 6"/>
+    <camera name="fixed" pos="0 -4 1" zaxis="0 -1 0"/>
+    <camera name="lookatroot" mode="targetbody" target="pole_root" pos="0 -2 2"/>
+    <geom name="floor" pos="0 0 -.05" size="4 4 .2" type="plane" material="grid"/>
+
+    <!-- <geom name="root" type="cylinder" fromto="0 -.022 .4 0 .022 .4" size=".024"
+      material="decoration" contype="0" conaffinity="0"/> -->
+
+    <body name="pole_root" pos="0 0 1">
+      <joint name="root" type="hinge"/>
+      <geom name="pole_root" type="cylinder" fromto="0 -.022 .4 0 .022 .4" size=".024"
+            material="decoration" contype="0" conaffinity="0"/>
+      <body name="pole_1" childclass="pole">
+        <joint name="hinge_1"/>
+        <geom name="pole_1"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- <motor name="slide" joint="slider" gear="10" ctrllimited="true" ctrlrange="-1 1" /> -->
+    <motor name="pole_1_base" joint="hinge_1" gear="20" ctrllimited="true" ctrlrange="-1 1" />
+  </actuator>
+  
+</mujoco>

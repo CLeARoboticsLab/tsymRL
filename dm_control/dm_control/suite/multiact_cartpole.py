@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 
-"""Multiple actuator pendulum domain."""
+"""Multiple actuator cartpole domain."""
 
 import collections
 
@@ -39,7 +39,7 @@ def get_model_and_assets(num_poles=1):
 @SUITE.add('benchmarking')
 def balance(time_limit=_DEFAULT_TIME_LIMIT, random=None,
             environment_kwargs=None):
-  """Returns the Multiple actuator pendulum Balance task."""
+  """Returns the Multiple actuator cartpole Balance task."""
   physics = Physics.from_xml_string(*get_model_and_assets())
   task = Balance(swing_up=False, sparse=False, random=random)
   environment_kwargs = environment_kwargs or {}
@@ -50,7 +50,7 @@ def balance(time_limit=_DEFAULT_TIME_LIMIT, random=None,
 @SUITE.add('benchmarking')
 def balance_sparse(time_limit=_DEFAULT_TIME_LIMIT, random=None,
                    environment_kwargs=None):
-  """Returns the sparse reward variant of the multiple actuator pendulum Balance task."""
+  """Returns the sparse reward variant of the multiple actuator cartpole Balance task."""
   physics = Physics.from_xml_string(*get_model_and_assets())
   task = Balance(swing_up=False, sparse=True, random=random)
   environment_kwargs = environment_kwargs or {}
@@ -61,7 +61,7 @@ def balance_sparse(time_limit=_DEFAULT_TIME_LIMIT, random=None,
 @SUITE.add('benchmarking')
 def swingup(time_limit=_DEFAULT_TIME_LIMIT, random=None,
             environment_kwargs=None):
-  """Returns the multiple actuator pendulum Swing-Up task."""
+  """Returns the multiple actuator cartpole Swing-Up task."""
   physics = Physics.from_xml_string(*get_model_and_assets())
   task = Balance(swing_up=True, sparse=False, random=random)
   environment_kwargs = environment_kwargs or {}
@@ -72,7 +72,7 @@ def swingup(time_limit=_DEFAULT_TIME_LIMIT, random=None,
 @SUITE.add('benchmarking')
 def swingup_sparse(time_limit=_DEFAULT_TIME_LIMIT, random=None,
                    environment_kwargs=None):
-  """Returns the sparse reward variant of the multiple actuator pendulum Swing-Up task."""
+  """Returns the sparse reward variant of the multiple actuator cartpole Swing-Up task."""
   physics = Physics.from_xml_string(*get_model_and_assets())
   task = Balance(swing_up=True, sparse=True, random=random)
   environment_kwargs = environment_kwargs or {}
@@ -83,7 +83,7 @@ def swingup_sparse(time_limit=_DEFAULT_TIME_LIMIT, random=None,
 @SUITE.add()
 def two_poles(time_limit=_DEFAULT_TIME_LIMIT, random=None,
               environment_kwargs=None):
-  """Returns the multiple actuator pendulum Balance task with two poles."""
+  """Returns the multiple actuator cartpole Balance task with two poles."""
   physics = Physics.from_xml_string(*get_model_and_assets(num_poles=2))
   task = Balance(swing_up=True, sparse=False, random=random)
   environment_kwargs = environment_kwargs or {}
@@ -94,7 +94,7 @@ def two_poles(time_limit=_DEFAULT_TIME_LIMIT, random=None,
 @SUITE.add()
 def three_poles(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=3,
                 sparse=False, environment_kwargs=None):
-  """Returns the multiple actuator pendulum Balance task with three or more poles."""
+  """Returns the multiple actuator cartpole Balance task with three or more poles."""
   physics = Physics.from_xml_string(*get_model_and_assets(num_poles=num_poles))
   task = Balance(swing_up=True, sparse=sparse, random=random)
   environment_kwargs = environment_kwargs or {}
@@ -104,28 +104,18 @@ def three_poles(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=3,
 @SUITE.add()
 def four_poles(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=4,
                 sparse=False, environment_kwargs=None):
-  """Returns the multiple actuator pendulum Balance task with three or more poles."""
+  """Returns the multiple actuator cartpole Balance task with three or more poles."""
   physics = Physics.from_xml_string(*get_model_and_assets(num_poles=num_poles))
   task = Balance(swing_up=True, sparse=sparse, random=random)
   environment_kwargs = environment_kwargs or {}
   return control.Environment(
       physics, task, time_limit=time_limit, **environment_kwargs)
 
-
-@SUITE.add()
-def five_poles(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=5,
-                sparse=False, environment_kwargs=None):
-  """Returns the multiple actuator pendulum Balance task with three or more poles."""
-  physics = Physics.from_xml_string(*get_model_and_assets(num_poles=num_poles))
-  task = Balance(swing_up=True, sparse=sparse, random=random)
-  environment_kwargs = environment_kwargs or {}
-  return control.Environment(
-      physics, task, time_limit=time_limit, **environment_kwargs)
 
 @SUITE.add()
 def two_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=2,
                 sparse=False, environment_kwargs=None):
-  """Returns the multiple actuator pendulum Balance task with three or more poles."""
+  """Returns the multiple actuator cartpole Balance task with three or more poles."""
   physics = Physics.from_xml_string(*get_model_and_assets(num_poles=num_poles))
   task = Balance(swing_up=False, sparse=sparse, random=random)
   environment_kwargs = environment_kwargs or {}
@@ -136,7 +126,7 @@ def two_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=2,
 @SUITE.add()
 def five_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=5,
                 sparse=False, environment_kwargs=None):
-  """Returns the multiple actuator pendulum Balance task with three or more poles."""
+  """Returns the multiple actuator cartpole Balance task with three or more poles."""
   physics = Physics.from_xml_string(*get_model_and_assets(num_poles=num_poles))
   task = Balance(swing_up=False, sparse=sparse, random=random)
   environment_kwargs = environment_kwargs or {}
@@ -146,11 +136,11 @@ def five_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=5,
 
 def _make_model(n_poles):
   """Generates an xml string defining a cart with `n_poles` bodies."""
-  xml_string = common.read_model('pendulum.xml')
+  xml_string = common.read_model('multiact_cartpole.xml')
   if n_poles == 1:
     return xml_string
   mjcf = etree.fromstring(xml_string)
-  parent = mjcf.find('./worldbody/body')  # Find first pole.
+  parent = mjcf.find('./worldbody/body/body')  # Find first pole.
   act_parent = mjcf.find('./actuator')  # Find actuator parent class
 
   # Make chain of poles.
@@ -159,11 +149,10 @@ def _make_model(n_poles):
                           pos='0 0 1', childclass='pole')
     etree.SubElement(child, 'joint', name='hinge_{}'.format(pole_index))
     # Add the actuator for this joint
-    actuator = etree.Element('motor', name='pole_{}_base'.format(pole_index), joint = 'hinge_{}'.format(pole_index), gear="20", ctrllimited="true", ctrlrange="-1 1")
+    etree.Element('motor', name='pole_{}_base'.format(pole_index), joint = 'hinge_{}'.format(pole_index), gear="20", ctrllimited="true", ctrlrange="-1 1")
     # Add the pole geometry and advance the parent child pole tree
     etree.SubElement(child, 'geom', name='pole_{}'.format(pole_index))
     parent.append(child)
-    act_parent.append(actuator)
     parent = child
 
 
@@ -178,27 +167,33 @@ def _make_model(n_poles):
 
 
 class Physics(mujoco.Physics):
-  """Physics simulation with additional features for the multiple actuator pendulum domain."""
+  """Physics simulation with additional features for the multiple actuator cartpole domain."""
+
+  def cart_position(self):
+    """Returns the position of the cart."""
+    return self.named.data.qpos['slider'][0]
 
   def angular_vel(self):
     """Returns the angular velocity of the pole."""
-    return self.data.qvel[0:]
+    return self.data.qvel[1:]
 
   def pole_angle_cosine(self):
     """Returns the cosine of the pole angle."""
-    return self.named.data.xmat[1:, 'zz']
+    return self.named.data.xmat[2:, 'zz']
 
   def bounded_position(self):
     """Returns the state, with pole angle split into sin/cos."""
-    return self.named.data.xmat[1:, ['zz', 'xz']].ravel()
+    return np.hstack((self.cart_position(),
+                      self.named.data.xmat[2:, ['zz', 'xz']].ravel()))
 
 
 class Balance(base.Task):
-  """A multiple actuator pendulum `Task` to balance the pole.
+  """A multiple actuator cartpole `Task` to balance the pole.
 
   State is initialized either close to the target configuration or at a random
   configuration.
   """
+  _CART_RANGE = (-.25, .25)
   _ANGLE_COSINE_RANGE = (.995, 1)
 
   def __init__(self, swing_up, sparse, random=None):
@@ -229,10 +224,12 @@ class Balance(base.Task):
     """
     nv = physics.model.nv
     if self._swing_up:
+      physics.named.data.qpos['slider'] = 0.0
       physics.named.data.qpos['hinge_1'] = np.pi + .01*self.random.randn()
-      physics.named.data.qpos[1:] = .1*self.random.randn(nv - 1)
+      physics.named.data.qpos[2:] = .1*self.random.randn(nv - 2)
     else:
-      physics.named.data.qpos[:] = self.random.uniform(-.034, .034, nv)
+      physics.named.data.qpos['slider'] = self.random.uniform(-.1, .1)
+      physics.named.data.qpos[1:] = self.random.uniform(-.034, .034, nv - 1)
     physics.named.data.qvel[:] = 0.01 * self.random.randn(physics.model.nv)
     super().initialize_episode(physics)
 
@@ -245,36 +242,45 @@ class Balance(base.Task):
 
   def _get_reward(self, physics, sparse):
     if sparse:
+      cart_in_bounds = rewards.tolerance(physics.cart_position(),
+                                         self._CART_RANGE)
       angle_in_bounds = rewards.tolerance(physics.pole_angle_cosine(),
                                           self._ANGLE_COSINE_RANGE).prod()
-      return angle_in_bounds
+      return cart_in_bounds * angle_in_bounds
     else:
       upright = (physics.pole_angle_cosine() + 1) / 2
+      centered = rewards.tolerance(physics.cart_position(), margin=2)
+      centered = (1 + centered) / 2
       small_control = rewards.tolerance(physics.control(), margin=1,
                                         value_at_margin=0,
                                         sigmoid='quadratic').min()
       small_control = (4 + small_control) / 5
       small_velocity = rewards.tolerance(physics.angular_vel(), margin=5).min()
       small_velocity = (1 + small_velocity) / 2
-      return upright.mean() * small_control * small_velocity
+      return upright.mean() * small_control * small_velocity * centered
+
   def get_reward(self, physics):
     """Returns a sparse or a smooth reward, as specified in the constructor."""
     return self._get_reward(physics, sparse=self._sparse)
 
   def _get_rev_reward(self, physics, action, sparse):
       if sparse:
+        cart_in_bounds = rewards.tolerance(physics.cart_position(),
+                                          self._CART_RANGE)
         angle_in_bounds = rewards.tolerance(physics.pole_angle_cosine(),
                                             self._ANGLE_COSINE_RANGE).prod()
-        return angle_in_bounds
+        return cart_in_bounds * angle_in_bounds
       else:
         upright = (physics.pole_angle_cosine() + 1) / 2
+        centered = rewards.tolerance(physics.cart_position(), margin=2)
+        centered = (1 + centered) / 2
         small_control = rewards.tolerance(action, margin=1,
                                           value_at_margin=0,
                                           sigmoid='quadratic').min()
         small_control = (4 + small_control) / 5
         small_velocity = rewards.tolerance(-physics.angular_vel(), margin=5).min()
         small_velocity = (1 + small_velocity) / 2
-        return upright.mean() * small_control * small_velocity
+        return upright.mean() * small_control * small_velocity * centered
 
   def get_rev_reward(self, physics, action):
     """Returns a sparse or a smooth reversed time reward, as specified in the constructor."""
