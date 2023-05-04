@@ -10,37 +10,38 @@ import time
 import json
 import dmc2gym
 import copy
-import gymnasium as gym
-from gymnasium.wrappers import FlattenObservation
+# import gymnasium as gym
+# from gymnasium.wrappers import FlattenObservation
 
 import utils
 from logger import Logger
 from video import VideoRecorder
 
 from sac_ae import SacAeAgent
-
+# import custom_env
 
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--domain_name', default='cartpole')
+    parser.add_argument('--domain_name', default='varmass_pend')
     # parser.add_argument('--task_name', default='two_pole_balance')
-    parser.add_argument('--task_name', default='swingup')
+    # parser.add_argument('--task_name', default='swingup')
+    parser.add_argument('--task_name', default='five_poles')
+
 
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
-    parser.add_argument('--time_rev', default=False, type=bool)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=1200000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=200000, type=int)
     # train
     parser.add_argument('--agent', default='sac_ae', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
-    parser.add_argument('--num_train_steps', default=1200000, type=int)
+    parser.add_argument('--num_train_steps', default=200000, type=int)
     parser.add_argument('--batch_size', default=128, type=int)
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
-    parser.add_argument('--eval_freq', default=1000, type=int)
+    parser.add_argument('--eval_freq', default=4000, type=int)
     parser.add_argument('--num_eval_episodes', default=10, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
@@ -75,14 +76,18 @@ def parse_args():
     parser.add_argument('--alpha_lr', default=1e-4, type=float)
     parser.add_argument('--alpha_beta', default=0.5, type=float)
     # misc
-    parser.add_argument('--seed', default=2, type=int)
-    parser.add_argument('--work_dir', default='./hand_log/gripper_sparse2', type=str)
+    parser.add_argument('--seed', default=3, type=int)
+    # parser.add_argument('--work_dir', default='./hand_log/gripper_sparse2', type=str)
+    parser.add_argument('--work_dir', default='./multiact_cartpole_log/test', type=str)
+
     parser.add_argument('--save_tb', default=True, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
     parser.add_argument('--save_video', default=False, action='store_true')
     parser.add_argument('--gpu_choice', default=0, type=int)
-    parser.add_argument('--gym_env', default=True, action='store_true')
+    parser.add_argument('--gym_env', default=False, action='store_true')
+    parser.add_argument('--time_rev', default=False, type=bool)
+
 
     args = parser.parse_args()
     return args
@@ -108,8 +113,12 @@ def conjugate_obs(obs, next_obs, args):
         conj_obs = next_obs.copy()
         conj_next_obs = obs.copy()
 
-        # hard coded for cartpole for now
-        for idx in [3,4]:
+        # # hard coded for cartpole for now
+        # for idx in [3,4]:
+        #     conj_obs[idx] = conj_obs[idx] * -1
+        #     conj_next_obs[idx] = conj_next_obs[idx] * -1
+        # hard coded for pendulum for now
+        for idx in [2]:
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
 
@@ -118,7 +127,43 @@ def conjugate_obs(obs, next_obs, args):
         conj_next_obs = obs.copy()
 
         # hard coded for cartpole for now
-        for idx in [5, 6, 7]:
+        # for idx in [5, 6, 7]:
+        # Hard coded for pendulum with two pends well powered
+        for idx in [4,5]:
+            conj_obs[idx] = conj_obs[idx] * -1
+            conj_next_obs[idx] = conj_next_obs[idx] * -1
+
+    elif args.task_name == 'three_poles':
+        conj_obs = next_obs.copy()
+        conj_next_obs = obs.copy()
+
+        # hard coded for cartpole for now
+        # for idx in [7, 8, 9, 10]:
+        # Hard coded for pendulum with two pends well powered
+        for idx in [6, 7, 8]:
+            conj_obs[idx] = conj_obs[idx] * -1
+            conj_next_obs[idx] = conj_next_obs[idx] * -1
+
+    elif args.task_name == 'four_poles':
+        conj_obs = next_obs.copy()
+        conj_next_obs = obs.copy()
+
+        # hard coded for cartpole for now
+        # for idx in [9, 10, 11, 12, 13]:
+        # hard coded for actuated pendulum for now
+        for idx in [8, 9, 10, 11]:
+            conj_obs[idx] = conj_obs[idx] * -1
+            conj_next_obs[idx] = conj_next_obs[idx] * -1
+
+
+    elif args.task_name == 'five_poles':
+        conj_obs = next_obs.copy()
+        conj_next_obs = obs.copy()
+
+        # hard coded for cartpole for now
+        # for idx in [9, 10, 11, 12, 13]:
+        # hard coded for actuated pendulum for now
+        for idx in [10, 11, 12, 13, 14]:
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
 
@@ -133,6 +178,13 @@ def conjugate_obs(obs, next_obs, args):
         conj_obs = next_obs.copy()
         conj_next_obs = obs.copy()
         for idx in range(15, 24): # range doesn't include final number so real list is 37:66
+            conj_obs[idx] = conj_obs[idx] * -1
+            conj_next_obs[idx] = conj_next_obs[idx] * -1
+
+    elif args.task_name == 'lander':
+        conj_obs = next_obs.copy()
+        conj_next_obs = obs.copy()
+        for idx in [2, 3, 5]: # range doesn't include final number so real list is 37:66
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
     else:
@@ -151,6 +203,7 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
         video.init(enabled=(i == 1))
         done = False
         episode_reward = 0
+        # step_in_ep = 0
         while not done:
 
             with utils.eval_mode(agent):
@@ -160,6 +213,11 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
                 done = terminated or truncated
             else:
                 obs, reward, done, _ = env.step(action)
+                # step_in_ep += 1
+                # print(obs)
+                # print(step_in_ep)
+            # if step_in_ep == 534 and i ==1:
+            #     break
 
             video.record(env)
             episode_reward += reward
@@ -215,19 +273,19 @@ def main():
     print("Work dir is ", str(args.work_dir))
     utils.set_seed_everywhere(args.seed)
 
-    # env = dmc2gym.make(
-    #     domain_name=args.domain_name,
-    #     task_name=args.task_name,
-    #     seed=args.seed,
-    #     visualize_reward=False,
-    #     from_pixels=(args.encoder_type == 'pixel'),
-    #     height=args.image_size,
-    #     width=args.image_size,
-    #     frame_skip=args.action_repeat,
-    #     time_rev = args.time_rev
-    # )
+    env = dmc2gym.make(
+        domain_name=args.domain_name,
+        task_name=args.task_name,
+        seed=args.seed,
+        visualize_reward=False,
+        from_pixels=(args.encoder_type == 'pixel'),
+        height=args.image_size,
+        width=args.image_size,
+        frame_skip=args.action_repeat,
+        time_rev = args.time_rev
+    )
 
-    # env.seed(args.seed)
+    env.seed(args.seed)
 
 
     # config = {
@@ -252,18 +310,31 @@ def main():
     # env = gym.make('highway-fast-v0')
     # env = gym.make('two-way-v0')
     # env = gym.make('HandReach-v1')
-    env = gym.make('FetchReach-v3')
 
-
+    # env = gym.make('FetchReach-v3')
     # env.configure(config)
 
-    env.reset(seed=args.seed)
-    env.action_space.seed(args.seed)
-    env = FlattenObservation(env)
+
+    # shorten episode length
+    # max_episode_steps = (episode_length + args.action_repeat - 1) // args.action_repeat
+
+    # env = gym.make( "LunarLander-v2", continuous = True, gravity = -10.0, enable_wind = True, wind_power = 15.0, turbulence_power = 1.5)
+    # env = gym.make("custom_env/LunarLander-v2", continuous = True, gravity= -10, enable_wind= False, wind_power = 15.0, turbulence_power = 1.5, from_pixels = args.encoder_type == 'pixel', height = args.image_size, width = args.image_size, render_mode="rgb_array", kwargs=dict(frame_skip=args.action_repeat), max_episode_steps=max_episode_steps)
+
+    # env.reset(seed=args.seed)
+    # env.action_space.seed(args.seed)
 
     # stack several consecutive frames together
     if args.encoder_type == 'pixel':
-        env = utils.FrameStack(env, k=args.frame_stack)
+        if args.gym_env == False:
+            env = utils.FrameStack(env, k=args.frame_stack)
+        else:
+            from gymnasium.wrappers import FrameStack
+            env = utils.ResizeObservation(env, (args.image_size, args.image_size))
+            env = utils.GymnasiumFrameStack(env, args.frame_stack)
+    else:
+        if args.gym_env == True:
+            env = FlattenObservation(env)
 
     utils.make_dir(args.work_dir)
     video_dir = utils.make_dir(os.path.join(args.work_dir, 'video'))
@@ -314,17 +385,24 @@ def main():
     )
 
     L = Logger(args.work_dir, use_tb=args.save_tb)
-    step_since_last_eval = 0
 
     # Determine which states we need to do conjugate state transformation on
     if args.time_rev:
         if args.domain_name == 'cartpole':
+            print("Running ", args.domain_name)
+        if args.domain_name == 'pendulum':
+            print("Running ", args.domain_name)
+        if args.domain_name == 'varmass_pend':
+            print("Running ", args.domain_name)
+        if args.domain_name == 'half_varmass_pend':
             print("Running ", args.domain_name)
         elif args.domain_name == 'acrobot':
             print("Running ", args.domain_name)
         elif args.domain_name == 'humanoid':
             print("Running ", args.domain_name)
         elif args.domain_name == 'walker':
+            print("Running ", args.domain_name)
+        elif args.domain_name == 'multiact_cartpole':
             print("Running ", args.domain_name)
         else:
             print("Unknown environment for now. Add a new tsymmetric environment for ", args.domain_name)
@@ -335,25 +413,24 @@ def main():
     start_time = time.time()
     iter_train_steps = iter(range(args.num_train_steps))
     for step in iter_train_steps:
+
+        # evaluate agent periodically
+        if step % args.eval_freq == 0:
+            L.log('eval/episode', episode, step)
+
+            evaluate(env, agent, video, args.num_eval_episodes, L, step, args)
+
+            if args.save_model:
+                agent.save(model_dir, step)
+            if args.save_buffer:
+                replay_buffer.save(buffer_dir)
+                # dual_buffer.save(buffer_dir)
+
         if done:
             if step > 0:
                 L.log('train/duration', time.time() - start_time, step)
                 start_time = time.time()
                 L.dump(step)
-
-
-            # evaluate agent periodically
-            if step_since_last_eval > args.eval_freq:
-                step_since_last_eval = 0
-                L.log('eval/episode', episode, step)
-
-                evaluate(env, agent, video, args.num_eval_episodes, L, step, args)
-
-                if args.save_model:
-                    agent.save(model_dir, step)
-                if args.save_buffer:
-                    replay_buffer.save(buffer_dir)
-                    # dual_buffer.save(buffer_dir)
 
             L.log('train/episode_reward', episode_reward, step)
 
@@ -372,7 +449,6 @@ def main():
             episode += 1
 
             L.log('train/episode', episode, step)
-        step_since_last_eval += 1
         # sample action for data collection
         if step < args.init_steps:
             action = env.action_space.sample()
@@ -388,7 +464,7 @@ def main():
 
         # Modified this since the dmc2gym wrapper gives us internal state for free in the extras dict
         if args.gym_env == True:
-            next_obs, reward, terminated, truncated, _ = env.step(action)
+            next_obs, reward, terminated, truncated, extra = env.step(action)
             done = terminated or truncated
         else:
             next_obs, reward, done, extra = env.step(action)
@@ -404,7 +480,10 @@ def main():
                 conj_done = True # Treat start of reverse time trajectory the same as a timeout
             else: 
                 conj_done = False
+            # if args.task_name == 'lander':
+                # if next_obs[6] == 0.0 and next_obs[7] == 0.0:
             replay_buffer.add(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
+
             episode_rev_reward += extra['rev_reward']
 
 

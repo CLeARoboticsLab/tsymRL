@@ -444,3 +444,11 @@ class SacAeAgent(object):
             self.decoder.load_state_dict(
                 torch.load('%s/decoder_%s.pt' % (model_dir, step))
             )
+
+    def load_only_dec(self, model_dir, step):
+        if self.decoder is not None:
+            self.decoder.load_state_dict(
+                torch.load('%s/decoder_%s.pt' % (model_dir, step))
+            )
+
+    

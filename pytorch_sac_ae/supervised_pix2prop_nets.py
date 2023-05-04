@@ -179,7 +179,16 @@ class pix2prop(object):
         L.log('train_prop/premean_abs_err_vel1', total_diff[:,3].sum(), step)
         L.log('train_prop/premean_abs_err_vel2', total_diff[:,4].sum(), step)
 
-        prop_state_loss = F.mse_loss(est_prop_state, true_prop_state, reduction='none')[:,4].mean()
+        L.log('train_prop/indivmean_abs_err_pos1', total_diff[:,0].mean(), step)
+        L.log('train_prop/indivmean_abs_err_pos2', total_diff[:,1].mean(), step)
+        L.log('train_prop/indivmean_abs_err_pos3', total_diff[:,2].mean(), step)
+        L.log('train_prop/indivmean_abs_err_vel1', total_diff[:,3].mean(), step)
+        L.log('train_prop/indivmean_abs_err_vel2', total_diff[:,4].mean(), step)
+
+        # prop_state_loss = F.mse_loss(est_prop_state, true_prop_state, reduction='none')[:,4].mean()
+
+        prop_state_loss = F.mse_loss(est_prop_state, true_prop_state, reduction='none').mean()
+
         L.log('train_prop/loss', prop_state_loss, step)
 
 
@@ -232,12 +241,12 @@ class pix2prop(object):
         self.update_decoder(obs, obs, L, step)
 
     def save(self, model_dir, step):
-        torch.save(
-            self.actor.state_dict(), '%s/actor_%s.pt' % (model_dir, step)
-        )
-        torch.save(
-            self.critic.state_dict(), '%s/critic_%s.pt' % (model_dir, step)
-        )
+        # torch.save(
+        #     self.actor.state_dict(), '%s/actor_%s.pt' % (model_dir, step)
+        # )
+        # torch.save(
+        #     self.critic.state_dict(), '%s/critic_%s.pt' % (model_dir, step)
+        # )
         if self.decoder is not None:
             torch.save(
                 self.decoder.state_dict(),
@@ -245,12 +254,12 @@ class pix2prop(object):
             )
 
     def load(self, model_dir, step):
-        self.actor.load_state_dict(
-            torch.load('%s/actor_%s.pt' % (model_dir, step))
-        )
-        self.critic.load_state_dict(
-            torch.load('%s/critic_%s.pt' % (model_dir, step))
-        )
+        # self.actor.load_state_dict(
+        #     torch.load('%s/actor_%s.pt' % (model_dir, step))
+        # )
+        # self.critic.load_state_dict(
+        #     torch.load('%s/critic_%s.pt' % (model_dir, step))
+        # )
         if self.decoder is not None:
             self.decoder.load_state_dict(
                 torch.load('%s/decoder_%s.pt' % (model_dir, step))
