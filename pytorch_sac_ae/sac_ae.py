@@ -117,14 +117,25 @@ class Actor(nn.Module):
 
 class QFunction(nn.Module):
     """MLP for q-function."""
-    def __init__(self, obs_dim, action_dim, hidden_dim):
+    def __init__(self, obs_dim, action_dim, hidden_dim, use_layer = False):
         super().__init__()
-
-        self.trunk = nn.Sequential(
-            nn.Linear(obs_dim + action_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, 1)
-        )
+    
+        if use_layer == True:
+            self.trunk = nn.Sequential(
+                nn.Linear(obs_dim + action_dim, hidden_dim), 
+                nn.LayerNorm(hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim), 
+                nn.LayerNorm(hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, 1)
+            )
+        else:
+            self.trunk = nn.Sequential(
+                nn.Linear(obs_dim + action_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+                nn.Linear(hidden_dim, 1)
+            )
 
     def forward(self, obs, action):
         assert obs.size(0) == action.size(0)
@@ -178,9 +189,9 @@ class Critic(nn.Module):
         for k, v in self.outputs.items():
             L.log_histogram('train_critic/%s_hist' % k, v, step)
 
-        for i in range(3):
-            L.log_param('train_critic/q1_fc%d' % i, self.Q1.trunk[i * 2], step)
-            L.log_param('train_critic/q2_fc%d' % i, self.Q2.trunk[i * 2], step)
+        # for i in range(3):
+        #     L.log_param('train_critic/q1_fc%d' % i, self.Q1.trunk[i * 3], step)
+        #     L.log_param('train_critic/q2_fc%d' % i, self.Q2.trunk[i * 3], step)
 
 
 class SacAeAgent(object):
@@ -331,6 +342,8 @@ class SacAeAgent(object):
         critic_loss = F.mse_loss(current_Q1,
                                  target_Q) + F.mse_loss(current_Q2, target_Q)
         L.log('train_critic/loss', critic_loss, step)
+        L.log('train_critic/Qvalue', torch.min(current_Q1, current_Q2).mean(), step)
+        L.log('train_critic/target_Q', target_Q.mean(), step)
 
 
         # Optimize the critic
@@ -347,6 +360,7 @@ class SacAeAgent(object):
 
         actor_Q = torch.min(actor_Q1, actor_Q2)
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
+        L.log('train_actor/Qvalue', actor_Q.mean(), step)
 
         L.log('train_actor/loss', actor_loss, step)
         L.log('train_actor/target_entropy', self.target_entropy, step)
