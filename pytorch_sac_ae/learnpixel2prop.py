@@ -72,7 +72,7 @@ def parse_args():
     parser.add_argument('--alpha_beta', default=0.5, type=float)
     # misc
     parser.add_argument('--seed', default=2, type=int)
-    parser.add_argument('--work_dir', default='./log_false', type=str)
+    parser.add_argument('--work_dir', default='./saved_buffers', type=str)
     parser.add_argument('--save_tb', default=True, action='store_true')
     parser.add_argument('--save_model', default=False, action='store_true')
     parser.add_argument('--save_buffer', default=False, action='store_true')
@@ -145,6 +145,7 @@ def main():
     )
 
     buffer_dir = utils.make_dir(os.path.join(args.work_dir, 'buffer'))
+    model_dir = utils.make_dir(os.path.join(args.work_dir, 'model'))
 
     dual_buffer.load(buffer_dir)
 
@@ -160,12 +161,12 @@ def main():
     L = Logger(os.path.join(args.work_dir, 'sup_learning'), use_tb=args.save_tb)
 
     # Num of epochs
-    num_epochs = 60000
-
+    num_epochs = 30000
+    agent.save(model_dir, 0)
     for step in range(num_epochs):
         agent.update(dual_buffer, L, step)
 
         # print("Epoch ", step)
-
+    agent.save(model_dir, step)
 if __name__ == '__main__':
     main()
