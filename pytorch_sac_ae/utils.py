@@ -139,6 +139,182 @@ class ReplayBuffer(object):
             self.not_dones[start:end] = payload[4]
             self.idx = end
 
+class TsymReplayBuffer(object):
+    """Buffer to store environment transitions."""
+    def __init__(self, obs_shape, action_shape, capacity, batch_size, device, percent_tsym, percent_sampling, phase_percent):
+        self.capacity = capacity
+        self.tsym_capacity = round(capacity * percent_tsym/100)
+        self.batch_size = batch_size
+        self.device = device
+        self.percent_sampling = percent_sampling
+        self.phase_percent = phase_percent
+
+        # the proprioceptive obs is stored as float32, pixels obs as uint8
+        obs_dtype = np.float32 if len(obs_shape) == 1 else np.uint8
+
+        self.obses = np.empty((capacity, *obs_shape), dtype=obs_dtype)
+        self.next_obses = np.empty((capacity, *obs_shape), dtype=obs_dtype)
+        self.actions = np.empty((capacity, *action_shape), dtype=np.float32)
+        self.rewards = np.empty((capacity, 1), dtype=np.float32)
+        self.not_dones = np.empty((capacity, 1), dtype=np.float32)
+
+        self.tsym_obses = np.empty((self.tsym_capacity, *obs_shape), dtype=obs_dtype)
+        self.tsym_next_obses = np.empty((self.tsym_capacity, *obs_shape), dtype=obs_dtype)
+        self.tsym_actions = np.empty((self.tsym_capacity, *action_shape), dtype=np.float32)
+        self.tsym_rewards = np.empty((self.tsym_capacity, 1), dtype=np.float32)
+        self.tsym_not_dones = np.empty((self.tsym_capacity, 1), dtype=np.float32)
+
+        self.idx = 0
+        self.tsym_idx = 0
+
+        self.last_save = 0
+        self.full = False
+        self.tsym_full = False
+
+
+    def add(self, obs, action, reward, next_obs, done):
+        np.copyto(self.obses[self.idx], obs)
+        np.copyto(self.actions[self.idx], action)
+        np.copyto(self.rewards[self.idx], reward)
+        np.copyto(self.next_obses[self.idx], next_obs)
+        np.copyto(self.not_dones[self.idx], not done)
+
+        self.idx = (self.idx + 1) % self.capacity
+        self.full = self.full or self.idx == 0
+
+    def add_tsym(self, obs, action, reward, next_obs, done):
+
+        if self.percent_sampling != "phase_in": # add to buffer normally
+
+            np.copyto(self.tsym_obses[self.tsym_idx], obs)
+            np.copyto(self.tsym_actions[self.tsym_idx], action)
+            np.copyto(self.tsym_rewards[self.tsym_idx], reward)
+            np.copyto(self.tsym_next_obses[self.tsym_idx], next_obs)
+            np.copyto(self.tsym_not_dones[self.tsym_idx], not done)
+
+            self.tsym_idx = (self.tsym_idx + 1) % self.tsym_capacity
+            self.tsym_full = self.tsym_full or self.tsym_idx == 0
+
+        else:
+            if self.idx >= int(self.phase_percent/100 * self.capacity): # phase in after some number of steps relative to capacity of buffer
+                np.copyto(self.tsym_obses[self.tsym_idx], obs)
+                np.copyto(self.tsym_actions[self.tsym_idx], action)
+                np.copyto(self.tsym_rewards[self.tsym_idx], reward)
+                np.copyto(self.tsym_next_obses[self.tsym_idx], next_obs)
+                np.copyto(self.tsym_not_dones[self.tsym_idx], not done)
+
+                self.tsym_idx = (self.tsym_idx + 1) % self.tsym_capacity
+                self.tsym_full = self.tsym_full or self.tsym_idx == 0
+
+    def sample(self):
+        # idxs = np.random.randint(
+        #     0, self.capacity + self.tsym_capacity if self.full and self.tsym_full else self.idx + self.tsym_idx, size=self.batch_size
+        # )
+
+
+        if self.percent_sampling == "even":
+            # Sample randomly in equal proportion across each individual replay buffer 
+            idxs = np.random.randint(
+                0, self.capacity if self.full else self.idx, size=int(self.batch_size/2)
+            )
+
+            tsym_idxs = np.random.randint(
+                0, self.tsym_capacity if self.tsym_full else self.tsym_idx, size=int(self.batch_size/2)
+            )
+        # else: # natural sampling
+            # Sample randomly across both replay buffers
+            # BROKEN!!! see tsym_idx in else statement reseting on each full hit. Need to rethink
+            # full_idxs = np.random.randint(
+            #     0, self.capacity + self.tsym_capacity if self.full and self.tsym_full else self.idx + self.tsym_idx, size=self.batch_size
+            # )
+            # idxs = full_idxs[full_idxs < self.capacity]
+            # tsym_idxs = full_idxs[full_idxs >= self.capacity] - self.capacity #new way
+            # tsym_idxs = full_idxs[full_idxs >= self.capacity] #old way
+
+        elif self.percent_sampling == "natural": # natural sampling
+            max_base_sample = self.capacity if self.full else self.idx
+            max_tsym_sample = self.tsym_capacity if self.tsym_full else self.tsym_idx
+
+            full_idxs = np.random.randint(0, max_base_sample + max_tsym_sample, size=self.batch_size)
+            idxs = full_idxs[full_idxs < max_base_sample]
+            tsym_idxs = full_idxs[full_idxs >= max_base_sample] - max_base_sample #new way
+
+
+        elif self.percent_sampling == "phase_in": # phase in after step sampling
+
+            if self.idx > self.phase_percent/100 * self.capacity: # phase in after some number of steps relative to capacity of buffer
+                max_base_sample = self.capacity if self.full else self.idx
+                max_tsym_sample = self.tsym_capacity if self.tsym_full else self.tsym_idx
+
+                full_idxs = np.random.randint(0, max_base_sample + max_tsym_sample, size=self.batch_size)
+                idxs = full_idxs[full_idxs < max_base_sample]
+                tsym_idxs = full_idxs[full_idxs >= max_base_sample] - max_base_sample #new way
+            else:
+                # draw from non time symmetric buffer
+                idxs = np.random.randint(0, self.capacity if self.full else self.idx, size=self.batch_size)
+                tsym_idxs = np.empty(0, dtype=np.int8)
+
+        else: # phase out with step
+
+            if self.idx < 200000:
+                max_base_sample = self.capacity if self.full else self.idx
+                max_tsym_sample = self.tsym_capacity if self.tsym_full else self.tsym_idx
+
+                full_idxs = np.random.randint(0, max_base_sample + max_tsym_sample, size=self.batch_size)
+                idxs = full_idxs[full_idxs < max_base_sample]
+                tsym_idxs = full_idxs[full_idxs >= max_base_sample] - max_base_sample #new way
+            else:
+                # Suddenly phase out time symmetric data after set number of steps
+                idxs = np.random.randint(0, self.capacity if self.full else self.idx, size=self.batch_size)
+                tsym_idxs = np.empty(0, dtype=np.int8)
+
+        obses = torch.as_tensor(self.obses[idxs], device=self.device).float()
+        actions = torch.as_tensor(self.actions[idxs], device=self.device)
+        rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
+        next_obses = torch.as_tensor(
+            self.next_obses[idxs], device=self.device
+        ).float()
+        not_dones = torch.as_tensor(self.not_dones[idxs], device=self.device)
+
+        tsym_obses = torch.as_tensor(self.tsym_obses[tsym_idxs], device=self.device).float()
+        tsym_actions = torch.as_tensor(self.tsym_actions[tsym_idxs], device=self.device)
+        tsym_rewards = torch.as_tensor(self.tsym_rewards[tsym_idxs], device=self.device)
+        tsym_next_obses = torch.as_tensor(
+            self.tsym_next_obses[tsym_idxs], device=self.device
+        ).float()
+        tsym_not_dones = torch.as_tensor(self.tsym_not_dones[tsym_idxs], device=self.device)
+
+        return torch.cat((obses, tsym_obses)), torch.cat((actions, tsym_actions)), torch.cat((rewards, tsym_rewards)), torch.cat((next_obses, tsym_next_obses)), torch.cat((not_dones, tsym_not_dones))
+
+    def save(self, save_dir):
+        if self.idx == self.last_save:
+            return
+        path = os.path.join(save_dir, '%d_%d.pt' % (self.last_save, self.idx))
+        payload = [
+            self.obses[self.last_save:self.idx],
+            self.next_obses[self.last_save:self.idx],
+            self.actions[self.last_save:self.idx],
+            self.rewards[self.last_save:self.idx],
+            self.not_dones[self.last_save:self.idx]
+        ]
+        self.last_save = self.idx
+        torch.save(payload, path)
+
+    def load(self, save_dir):
+        chunks = os.listdir(save_dir)
+        chucks = sorted(chunks, key=lambda x: int(x.split('_')[0]))
+        for chunk in chucks:
+            start, end = [int(x) for x in chunk.split('.')[0].split('_')]
+            path = os.path.join(save_dir, chunk)
+            payload = torch.load(path)
+            assert self.idx == start
+            self.obses[start:end] = payload[0]
+            self.next_obses[start:end] = payload[1]
+            self.actions[start:end] = payload[2]
+            self.rewards[start:end] = payload[3]
+            self.not_dones[start:end] = payload[4]
+            self.idx = end
+
 class DualReplayBuffer(object):
     """Buffer to store environment transitions in both image and proprioceptive state."""
     def __init__(self, pix_obs_shape, prop_obs_shape, capacity, batch_size, device):
