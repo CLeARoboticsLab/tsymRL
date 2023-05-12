@@ -132,6 +132,16 @@ def two_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=2,
   return control.Environment(
       physics, task, time_limit=time_limit, **environment_kwargs)
 
+@SUITE.add()
+def four_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=4,
+                sparse=False, environment_kwargs=None):
+  """Returns the multiple actuator pendulum Balance task with three or more poles."""
+  physics = Physics.from_xml_string(*get_model_and_assets(num_poles=num_poles))
+  task = Balance(swing_up=False, sparse=sparse, random=random)
+  environment_kwargs = environment_kwargs or {}
+  return control.Environment(
+      physics, task, time_limit=time_limit, **environment_kwargs)
+
 
 @SUITE.add()
 def five_pole_balance(time_limit=_DEFAULT_TIME_LIMIT, random=None, num_poles=5,
