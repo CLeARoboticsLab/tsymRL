@@ -23,17 +23,17 @@ from sac_ae import SacAeAgent
 def parse_args():
     parser = argparse.ArgumentParser()
     # environment
-    parser.add_argument('--domain_name', default='varmass_pend')
+    parser.add_argument('--domain_name', default='cartpole')
     # parser.add_argument('--task_name', default='two_pole_balance')
     # parser.add_argument('--task_name', default='swingup')
-    parser.add_argument('--task_name', default='five_poles')
+    parser.add_argument('--task_name', default='swingup')
 
 
     parser.add_argument('--image_size', default=84, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=200000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=20000, type=int)
     # train
     parser.add_argument('--agent', default='sac_ae', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
@@ -87,7 +87,10 @@ def parse_args():
     parser.add_argument('--gpu_choice', default=0, type=int)
     parser.add_argument('--gym_env', default=False, action='store_true')
     parser.add_argument('--time_rev', default=False, type=bool)
-
+    parser.add_argument('--percent_tsym', default=20, type=int)
+    parser.add_argument('--percent_sampling', default='phase_in', type=str)
+    parser.add_argument('--phase_percent', default=10, type=int)
+    # parser.add_argument('--reset_agent_aftersteps', default=False, action='store_true')
 
     args = parser.parse_args()
     return args
@@ -114,13 +117,13 @@ def conjugate_obs(obs, next_obs, args):
         conj_next_obs = obs.copy()
 
         # # hard coded for cartpole for now
-        # for idx in [3,4]:
-        #     conj_obs[idx] = conj_obs[idx] * -1
-        #     conj_next_obs[idx] = conj_next_obs[idx] * -1
-        # hard coded for pendulum for now
-        for idx in [2]:
+        for idx in [3,4]:
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
+        # hard coded for pendulum for now
+        # for idx in [2]:
+        #     conj_obs[idx] = conj_obs[idx] * -1
+        #     conj_next_obs[idx] = conj_next_obs[idx] * -1
 
     elif args.task_name == 'two_pole_balance' or args.task_name == 'two_poles':
         conj_obs = next_obs.copy()
@@ -144,7 +147,7 @@ def conjugate_obs(obs, next_obs, args):
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
 
-    elif args.task_name == 'four_poles':
+    elif args.task_name == 'four_poles' or args.task_name == 'four_pole_balance':
         conj_obs = next_obs.copy()
         conj_next_obs = obs.copy()
 
@@ -188,7 +191,7 @@ def conjugate_obs(obs, next_obs, args):
             conj_obs[idx] = conj_obs[idx] * -1
             conj_next_obs[idx] = conj_next_obs[idx] * -1
     else:
-        print('Unknown env ', args.task_name)
+        print('Unknown task name ', args.task_name)
         print('Exiting....')
         return
     return conj_obs, conj_next_obs
@@ -361,13 +364,25 @@ def main():
     assert env.action_space.low.min() >= -1
     assert env.action_space.high.max() <= 1
 
+    # if args.time_rev:
+    #     replay_buffer = utils.TsymReplayBuffer(
+    #         obs_shape=env.observation_space.shape,
+    #         action_shape=env.action_space.shape,
+    #         capacity=args.replay_buffer_capacity,
+    #         batch_size=args.batch_size,
+    #         device=device,
+    #         percent_tsym=args.percent_tsym,
+    #         percent_sampling = args.percent_sampling,
+    #         phase_percent = args.phase_percent
+    #     )
+    # else:
     replay_buffer = utils.ReplayBuffer(
-        obs_shape=env.observation_space.shape,
-        action_shape=env.action_space.shape,
-        capacity=args.replay_buffer_capacity,
-        batch_size=args.batch_size,
-        device=device
-    )
+            obs_shape=env.observation_space.shape,
+            action_shape=env.action_space.shape,
+            capacity=args.replay_buffer_capacity,
+            batch_size=args.batch_size,
+            device=device
+        )
 
     # dual_buffer = utils.DualReplayBuffer(
     #     pix_obs_shape=env.observation_space.shape,
@@ -390,11 +405,11 @@ def main():
     if args.time_rev:
         if args.domain_name == 'cartpole':
             print("Running ", args.domain_name)
-        if args.domain_name == 'pendulum':
+        elif args.domain_name == 'pendulum':
             print("Running ", args.domain_name)
-        if args.domain_name == 'varmass_pend':
+        elif args.domain_name == 'varmass_pend':
             print("Running ", args.domain_name)
-        if args.domain_name == 'half_varmass_pend':
+        elif args.domain_name == 'half_varmass_pend':
             print("Running ", args.domain_name)
         elif args.domain_name == 'acrobot':
             print("Running ", args.domain_name)
@@ -413,6 +428,16 @@ def main():
     start_time = time.time()
     iter_train_steps = iter(range(args.num_train_steps))
     for step in iter_train_steps:
+
+        # if args.reset_agent_aftersteps == True:
+        #     if step % 250000 == 0:
+        #         # Reset the entire agent to test if we are dealing with primacy type bias
+        #         agent = make_agent(
+        #             obs_shape=env.observation_space.shape,
+        #             action_shape=env.action_space.shape,
+        #             args=args,
+        #             device=device
+        #         )
 
         # evaluate agent periodically
         if step % args.eval_freq == 0:
@@ -482,6 +507,7 @@ def main():
                 conj_done = False
             # if args.task_name == 'lander':
                 # if next_obs[6] == 0.0 and next_obs[7] == 0.0:
+            # replay_buffer.add_tsym(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
             replay_buffer.add(conj_obs, action, extra['rev_reward'], conj_next_obs, conj_done)
 
             episode_rev_reward += extra['rev_reward']
