@@ -521,10 +521,34 @@ import numpy as np
 
 from segment_tree import SumSegmentTree, MinSegmentTree
 
+class LinearSchedule(object):
+    def __init__(self, schedule_timesteps, final_p, initial_p=1.0):
+        """Linear interpolation between initial_p and final_p over
+        schedule_timesteps. After this many timesteps pass final_p is
+        returned.
+        Parameters
+        ----------
+        schedule_timesteps: int
+            Number of timesteps for which to linearly anneal initial_p
+            to final_p
+        initial_p: float
+            initial output value
+        final_p: float
+            final output value
+        """
+        self.schedule_timesteps = schedule_timesteps
+        self.final_p = final_p
+        self.initial_p = initial_p
+
+    def value(self, t):
+        """See Schedule.value"""
+        fraction = min(float(t) / self.schedule_timesteps, 1.0)
+        return self.initial_p + fraction * (self.final_p - self.initial_p)
+    
 # Open AI implementations of replay buffer and prioritized experience replay from here: 
 # https://github.com/openai/baselines/blob/master/baselines/deepq/replay_buffer.py
 class OpenAIReplayBuffer(object):
-    def __init__(self, size):
+    def __init__(self, capacity, batch_size, device):
         """Create Replay buffer.
         Parameters
         ----------
@@ -533,14 +557,16 @@ class OpenAIReplayBuffer(object):
             overflows the old memories are dropped.
         """
         self._storage = []
-        self._maxsize = size
+        self._maxsize = capacity
         self._next_idx = 0
+        self.batch_size = batch_size
+        self.device = device
 
     def __len__(self):
         return len(self._storage)
 
     def add(self, obs_t, action, reward, obs_tp1, done):
-        data = (obs_t, action, reward, obs_tp1, done)
+        data = (obs_t, action, reward, obs_tp1, not done)
 
         if self._next_idx >= len(self._storage):
             self._storage.append(data)
@@ -558,9 +584,11 @@ class OpenAIReplayBuffer(object):
             rewards.append(reward)
             obses_tp1.append(np.array(obs_tp1, copy=False))
             dones.append(done)
-        return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
 
-    def sample(self, batch_size):
+        # Convert to tensors and return
+        return torch.as_tensor(np.array(obses_t), device=self.device).float(), torch.as_tensor(np.array(actions), device=self.device).float(), torch.as_tensor(np.array(rewards), device=self.device).unsqueeze(1).float(), torch.as_tensor(np.array(obses_tp1), device=self.device).float(), torch.as_tensor(np.array(dones), device=self.device).unsqueeze(1).float()
+    
+    def sample(self):
         """Sample a batch of experiences.
         Parameters
         ----------
@@ -580,12 +608,12 @@ class OpenAIReplayBuffer(object):
             done_mask[i] = 1 if executing act_batch[i] resulted in
             the end of an episode and 0 otherwise.
         """
-        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+        idxes = [random.randint(0, len(self._storage) - 1) for _ in range(self.batch_size)]
         return self._encode_sample(idxes)
 
 
 class PrioritizedReplayBuffer(OpenAIReplayBuffer):
-    def __init__(self, size, alpha):
+    def __init__(self, capacity, batch_size, device, alpha = 0.6):
         """Create Prioritized Replay buffer.
         Parameters
         ----------
@@ -599,12 +627,12 @@ class PrioritizedReplayBuffer(OpenAIReplayBuffer):
         --------
         ReplayBuffer.__init__
         """
-        super(PrioritizedReplayBuffer, self).__init__(size)
+        super(PrioritizedReplayBuffer, self).__init__(capacity, batch_size, device)
         assert alpha >= 0
         self._alpha = alpha
 
         it_capacity = 1
-        while it_capacity < size:
+        while it_capacity < capacity:
             it_capacity *= 2
 
         self._it_sum = SumSegmentTree(it_capacity)
@@ -618,17 +646,17 @@ class PrioritizedReplayBuffer(OpenAIReplayBuffer):
         self._it_sum[idx] = self._max_priority ** self._alpha
         self._it_min[idx] = self._max_priority ** self._alpha
 
-    def _sample_proportional(self, batch_size):
+    def _sample_proportional(self):
         res = []
         p_total = self._it_sum.sum(0, len(self._storage) - 1)
-        every_range_len = p_total / batch_size
-        for i in range(batch_size):
+        every_range_len = p_total / self.batch_size
+        for i in range(self.batch_size):
             mass = random.random() * every_range_len + i * every_range_len
             idx = self._it_sum.find_prefixsum_idx(mass)
             res.append(idx)
         return res
 
-    def sample(self, batch_size, beta):
+    def sample(self, beta):
         """Sample a batch of experiences.
         compared to ReplayBuffer.sample
         it also returns importance weights and idxes
@@ -662,7 +690,7 @@ class PrioritizedReplayBuffer(OpenAIReplayBuffer):
         """
         assert beta > 0
 
-        idxes = self._sample_proportional(batch_size)
+        idxes = self._sample_proportional()
 
         weights = []
         p_min = self._it_min.min() / self._it_sum.sum()
