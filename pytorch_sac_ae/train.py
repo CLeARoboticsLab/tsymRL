@@ -42,7 +42,7 @@ def parse_args():
     parser.add_argument('--hidden_dim', default=1024, type=int)
     # eval
     parser.add_argument('--eval_freq', default=4000, type=int)
-    parser.add_argument('--num_eval_episodes', default=10, type=int)
+    parser.add_argument('--num_eval_episodes', default=1, type=int)
     # critic
     parser.add_argument('--critic_lr', default=1e-3, type=float)
     parser.add_argument('--critic_beta', default=0.9, type=float)
@@ -90,6 +90,8 @@ def parse_args():
     parser.add_argument('--percent_tsym', default=20, type=int)
     parser.add_argument('--percent_sampling', default='phase_in', type=str)
     parser.add_argument('--phase_percent', default=10, type=int)
+    parser.add_argument('--prioritized_replay', default=False, action='store_true')
+
     # parser.add_argument('--reset_agent_aftersteps', default=False, action='store_true')
 
     args = parser.parse_args()
@@ -261,7 +263,9 @@ def make_agent(obs_shape, action_shape, args, device):
             decoder_latent_lambda=args.decoder_latent_lambda,
             decoder_weight_lambda=args.decoder_weight_lambda,
             num_layers=args.num_layers,
-            num_filters=args.num_filters
+            num_filters=args.num_filters,
+            prioritized_replay = args.prioritized_replay,
+            total_timesteps=args.num_train_steps
         )
     else:
         assert 'agent is not supported: %s' % args.agent
@@ -376,13 +380,18 @@ def main():
     #         phase_percent = args.phase_percent
     #     )
     # else:
-    replay_buffer = utils.ReplayBuffer(
-            obs_shape=env.observation_space.shape,
-            action_shape=env.action_space.shape,
-            capacity=args.replay_buffer_capacity,
-            batch_size=args.batch_size,
-            device=device
-        )
+    if args.prioritized_replay:
+        replay_buffer = utils.PrioritizedReplayBuffer(capacity=args.replay_buffer_capacity,
+                batch_size=args.batch_size,
+                device=device)
+    else:
+        replay_buffer = utils.ReplayBuffer(
+                obs_shape=env.observation_space.shape,
+                action_shape=env.action_space.shape,
+                capacity=args.replay_buffer_capacity,
+                batch_size=args.batch_size,
+                device=device
+            )
 
     # dual_buffer = utils.DualReplayBuffer(
     #     pix_obs_shape=env.observation_space.shape,
