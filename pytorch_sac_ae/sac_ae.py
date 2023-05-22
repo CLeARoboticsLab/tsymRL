@@ -8,6 +8,7 @@ import math
 import utils
 from encoder import make_encoder
 from decoder import make_decoder
+from utils import LinearSchedule
 
 LOG_FREQ = 10000
 
@@ -226,7 +227,9 @@ class SacAeAgent(object):
         decoder_latent_lambda=0.0,
         decoder_weight_lambda=0.0,
         num_layers=4,
-        num_filters=32
+        num_filters=32,
+        prioritized_replay = False,
+        total_timesteps = 10000,
     ):
         self.device = device
         self.discount = discount
@@ -238,6 +241,12 @@ class SacAeAgent(object):
 
         self.decoder_update_freq = decoder_update_freq
         self.decoder_latent_lambda = decoder_latent_lambda
+
+        self.prioritized_replay = prioritized_replay
+        if self.prioritized_replay:
+            self.beta_schedule = LinearSchedule(total_timesteps,
+                                initial_p=0.4,
+                                final_p=1.0)
 
         self.actor = Actor(
             obs_shape, action_shape, hidden_dim, encoder_type,
@@ -339,6 +348,10 @@ class SacAeAgent(object):
 
         # get current Q estimates
         current_Q1, current_Q2 = self.critic(obs, action)
+
+        # Get average td errors
+        td_errors = np.array((((current_Q1 - target_Q).abs() + (current_Q2 - target_Q).abs())/2).cpu().detach())
+
         critic_loss = F.mse_loss(current_Q1,
                                  target_Q) + F.mse_loss(current_Q2, target_Q)
         L.log('train_critic/loss', critic_loss, step)
@@ -352,6 +365,7 @@ class SacAeAgent(object):
         self.critic_optimizer.step()
 
         self.critic.log(L, step)
+        return td_errors
 
     def update_actor_and_alpha(self, obs, L, step):
         # detach encoder, so we don't update it with the actor loss
@@ -411,11 +425,18 @@ class SacAeAgent(object):
 
         for i in range(2):
             if step % self.critic_update_freq == 0:
-                obs, action, reward, next_obs, not_done = replay_buffer.sample()
+                if self.prioritized_replay:
+                    experience = replay_buffer.sample(beta=self.beta_schedule.value(step))
+
+                    (obs, action, reward, next_obs, not_done, weights, batch_idxes) = experience
+                else:
+                    obs, action, reward, next_obs, not_done = replay_buffer.sample()
 
                 L.log('train/batch_reward', reward.mean(), step)
-                self.update_critic(obs, action, reward, next_obs, not_done, L, step)
-
+                td_errors = self.update_critic(obs, action, reward, next_obs, not_done, L, step)
+                if self.prioritized_replay:
+                    new_priorities = np.abs(td_errors) + 1e-6
+                    replay_buffer.update_priorities(batch_idxes, new_priorities)
             if step % self.actor_update_freq == 0:
                 self.update_actor_and_alpha(obs, L, step)
 
