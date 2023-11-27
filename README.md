@@ -93,8 +93,8 @@ symmetric environments, e.g., when important exploratory actions lie at the edge
 action space. The two videos below depict the typical training progress in evaluation episodes with and without TSDA. 
 
 <p align="center">
-  <img width="49.5%" src="https://imgur.com/x0zsrTg.gif">
-  <img width="49.5%" src="https://imgur.com/ouLYLJY.gif">
+  <img width="49.5%" src="https://imgur.com/x0zsrTg">
+  <img width="49.5%" src="https://imgur.com/ouLYLJY">
 </p>
 <!-- Our method demonstrates significantly improved performance over the baseline SAC:pixel. It matches the state-of-the-art performance of model-based algorithms, such as PlaNet (Hafner et al., 2018) and SLAC (Lee et al., 2019), as well
 as a model-free algorithm D4PG (Barth-Maron et al., 2018), that also learns from raw images. Our
