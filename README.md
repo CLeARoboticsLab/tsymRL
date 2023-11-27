@@ -96,7 +96,7 @@ action space. The two videos below depict the typical training progress in evalu
   <!-- <img width="45%" src="https://raw.githubusercontent.com/bebark/tsymRL/gifs/withTSDA.gif"> -->
   <!-- <img width="45%" src="https://raw.githubusercontent.com/bebark/tsymRL/gifs/woTSDA.gif">   -->
 <!-- </p> -->
-![](https://raw.githubusercontent.com/bebark/tsymRL/gifs/withTSDA.gif)
+![](https://i.imgur.com/x0zsrTg.gif)
 <!-- Our method demonstrates significantly improved performance over the baseline SAC:pixel. It matches the state-of-the-art performance of model-based algorithms, such as PlaNet (Hafner et al., 2018) and SLAC (Lee et al., 2019), as well
 as a model-free algorithm D4PG (Barth-Maron et al., 2018), that also learns from raw images. Our
 algorithm exhibits stable learning across ten random seeds and is extremely easy to implement.
