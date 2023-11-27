@@ -88,7 +88,7 @@ right conditions. Ultimately we conclude that time symmetry shows promise in enh
 the sample efficiency of reinforcement learning if the environment
 and reward structures are of an appropriate form for TSDA to be employed effectively.
 
-One hypothesis of particular note that we mention in our paper is that TSDA can lead agents to favor early exploitation over exploration in time
+One hypothesis of particular note is that TSDA can lead agents to favor early exploitation over exploration in time
 symmetric environments, e.g., when important exploratory actions lie at the edge of the
 action space. The two videos below depict the typical training progress in evaluation episodes with and without TSDA. 
 
