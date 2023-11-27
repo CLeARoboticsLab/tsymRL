@@ -1,4 +1,4 @@
-name: tsym
+name: tsda
 channels:
   - defaults
 dependencies:
