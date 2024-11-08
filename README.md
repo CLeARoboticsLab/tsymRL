@@ -6,7 +6,6 @@ This is PyTorch implementation of TSDA from
 
 [Brett Barkley](https://bebark.github.io/), [Amy Zhang](https://amyzhang.github.io/), and [David Fridovich-Keil](https://clearoboticslab.github.io/).
 
-Add paper link
 [[Paper]](https://arxiv.org/abs/2311.17008)
 
 This repository is built as an extension of the Pytorch implementation of 
