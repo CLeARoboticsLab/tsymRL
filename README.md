@@ -7,7 +7,7 @@ This is PyTorch implementation of TSDA from
 [Brett Barkley](https://bebark.github.io/), [Amy Zhang](https://amyzhang.github.io/), and [David Fridovich-Keil](https://clearoboticslab.github.io/).
 
 Add paper link
-<!-- [[Paper]](https://arxiv.org/abs/1910.01741) -->
+[[Paper]](https://arxiv.org/abs/2311.17008)
 
 This repository is built as an extension of the Pytorch implementation of 
 
@@ -19,15 +19,15 @@ This repository is built as an extension of the Pytorch implementation of
 
 ## Citation
 If you use this repo in your research, please consider citing the paper as follows
-<!-- ```
+```
 @article{barkley2023TSDA,
     title={An Investigation of Time Reversal Symmetry in Reinforcement Learning},
     author={Brett Barkley and Amy Zhang and David Fridovich-Keil},
     year={2023},
-    eprint={1910.01741},
+    eprint={2311.17008},
     archivePrefix={arXiv}
 }
-``` -->
+```
 
 ## Requirements
 We assume you have access to a gpu that can run CUDA 9.2. Then, the simplest way to install all required dependencies is to create an anaconda environment by running the following in the top level directory:
